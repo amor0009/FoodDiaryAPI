@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from src.rabbitmq.client import rabbitmq_client
 from src.routers.database_router import database_router
 from src.routers.meal_products_router import meal_products_router
 from src.routers.meal_router import meal_router
@@ -20,6 +22,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup():
+    await rabbitmq_client.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await rabbitmq_client.close()
 
 app.include_router(meal_products_router, prefix="/meal_products")
 app.include_router(user_weight_router, prefix="/user_weight")

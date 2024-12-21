@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import create_access_token
 from src.database.database import get_async_session
+from src.rabbitmq.consumer import consume_messages
 from src.schemas.user import UserCreate
 from src.services.auth_service import create_user, authenticate_user
 
@@ -15,6 +16,7 @@ async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_se
     access_token = create_access_token(data={"sub": new_user.login})
     await db.commit()
     await db.refresh(new_user)
+    await consume_messages("registration_queue")
     return {"access_token": access_token, "token_type": "bearer"}
 
 

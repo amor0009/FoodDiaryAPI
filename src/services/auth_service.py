@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import verify_password, get_password_hash
 from src.models.user import User
+from src.rabbitmq.producer import publish_message
 from src.schemas.user import UserCreate
 from src.services.user_service import find_user_by_login_and_email
 
@@ -39,4 +40,9 @@ async def create_user(db: AsyncSession, user: UserCreate):
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+    message_data = {
+        "email": new_user.email,
+        "login": new_user.login,
+    }
+    await publish_message(message_data, "registration_queue")
     return new_user
