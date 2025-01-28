@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-
-from src.schemas.meal_products import MealProductsCreate, MealProductsUpdate
 from src.schemas.product import ProductRead
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.schemas.meal_products import MealProductsCreate, MealProductsUpdate
 
 
 class MealRead(BaseModel):
@@ -14,13 +16,26 @@ class MealRead(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    date: datetime
+    recorded_at: datetime
     user_id: int
     products: Optional[List[ProductRead]] = []
 
     class Config:
         from_attributes = True
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "weight": self.weight,
+            "calories": self.calories,
+            "proteins": self.proteins,
+            "fats": self.fats,
+            "carbohydrates": self.carbohydrates,
+            "recorded_at": self.recorded_at.isoformat(),
+            "user_id": self.user_id,
+            "products": [product.dict() for product in self.products] if self.products else []
+        }
 
 class MealUpdate(BaseModel):
     name: str
@@ -29,7 +44,7 @@ class MealUpdate(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    products: Optional[List[MealProductsUpdate]] = []
+    products: Optional[List['MealProductsUpdate']] = []
 
 
 class MealCreate(BaseModel):
@@ -39,5 +54,5 @@ class MealCreate(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    products: Optional[List[MealProductsCreate]] = []
+    products: Optional[List['MealProductsCreate']] = []
 

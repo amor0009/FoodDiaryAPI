@@ -1,18 +1,30 @@
+import logging
 from datetime import date, timedelta, datetime
 from fastapi import HTTPException, status
 from sqlalchemy import select, and_, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+from src.cache.cache import cache
 from src.models.meal import Meal
 from src.models.meal_products import MealProducts
-from src.schemas.meal import MealCreate, MealUpdate
-from src.services.meal_products_service import add_meal_product, update_meal_product, delete_meal_product
+from src.schemas.meal import MealCreate, MealUpdate, MealRead
+from src.services.meal_products_service import update_meal_product, delete_meal_product
 
 
 async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
     # Открываем транзакцию для добавления данных
     try:
+        query = select(Meal).where(Meal.id == meal.id)
+        result = await db.execute(query)
+        existing_meal = result.scalar()
+        if existing_meal:
+            logger.warning(f"User {user_id} already has meal with id: {existing_meal.id}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"User {user_id} already has meal with id: {existing_meal.id}"
+            )
+
         # Создаем запись о приёме пищи
         db_meal = Meal(
             name=meal.name,
@@ -39,6 +51,7 @@ async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
         # Завершаем транзакцию
         await db.commit()
         await db.refresh(db_meal)
+        await cache.delete(f"user_meals:{user_id}")
         return db_meal
 
     except IntegrityError:
@@ -48,17 +61,27 @@ async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
 
 
 async def get_user_meals(db: AsyncSession, user_id: int):
+    cache_key = f"user_meals:{user_id}"
+    cached_data = await cache.get(cache_key)
+
+    if cached_data:
+        return cached_data
+
     query = select(Meal).where(Meal.user_id == user_id)
     result = await db.execute(query)
     meals = result.scalars().all()
+    meal_list = [MealRead.model_validate(meal).model_dump(mode="json") for meal in meals]
+    await cache.set(cache_key, meal_list, expire=3600)
     return meals
 
 
-async def get_meal_products(db: AsyncSession, meal_id: int):
-    return await get_meal_products(db, meal_id)
-
-
 async def get_user_meals_with_products_by_date(db: AsyncSession, user_id: int, target_date: str):
+    cache_key = f"user_meals_products:{user_id}:{target_date}"
+    cached_data = await cache.get(cache_key)
+
+    if cached_data:
+        return cached_data
+
     current_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
     query = (
         select(Meal)
@@ -93,22 +116,37 @@ async def get_user_meals_with_products_by_date(db: AsyncSession, user_id: int, t
             "proteins": meal.proteins,
             "fats": meal.fats,
             "carbohydrates": meal.carbohydrates,
-            "date": meal.recorded_at,
+            "recorded_at": meal.recorded_at.isoformat(),
             "user_id": meal.user_id,
             "products": products,
         })
-
+    await cache.set(cache_key, formatted_meals, expire=3600)
     return formatted_meals
 
 
 async def get_meal_by_id(db: AsyncSession, meal_id: int, user_id: int):
+    cache_key = f"user_meal:{user_id}:{meal_id}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     query = select(Meal).where(and_(Meal.id == meal_id, Meal.user_id == user_id))
     result = await db.execute(query)
     meal = result.scalar_one_or_none()
+    if meal is None:
+        return None
+
+    meal_dict = MealRead.model_validate(meal).model_dump(mode="json")
+    await cache.set(cache_key, meal_dict, expire=3600)
     return meal
 
 
 async def get_meals_by_date(db: AsyncSession, user_id: int, target_date: str):
+    cache_key = f"user_meals:{user_id}:{target_date}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     current_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
     query = select(Meal).where(and_(
         Meal.user_id == user_id,
@@ -116,10 +154,17 @@ async def get_meals_by_date(db: AsyncSession, user_id: int, target_date: str):
     ))
     result = await db.execute(query)
     meals = result.scalars().all()
+    meals_dict = [MealRead.model_validate(meal).model_dump(mode="json") for meal in meals]
+    await cache.set(cache_key, meals_dict, expire=3600)
     return meals
 
 
 async def get_meals_last_7_days(db: AsyncSession, user_id: int):
+    cache_key= f"user_meals_history:{user_id}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     seven_days_ago = date.today() - timedelta(days=7)
     query = select(Meal).where(and_(
         Meal.user_id == user_id,
@@ -127,6 +172,8 @@ async def get_meals_last_7_days(db: AsyncSession, user_id: int):
     ).order_by(Meal.recorded_at.desc())
     result = await db.execute(query)
     meals = result.scalars().all()
+    meals_dict = [MealRead.model_validate(meal).model_dump(mode="json") for meal in meals]
+    await cache.set(cache_key, meals_dict, expire=3600)
     return meals
 
 
@@ -178,6 +225,9 @@ async def update_meal(db: AsyncSession, meal_update: MealUpdate, meal_id: int, u
 
     await db.commit()
     await db.refresh(db_meal)
+    await cache.delete(f"user_meals:{user_id}")
+    if db_meal.recorded_at:
+        await cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}")
     return db_meal
 
 
@@ -195,5 +245,8 @@ async def delete_meal(db: AsyncSession, meal_id: int, user_id: int):
     # Удаление самого приёма пищи
     await db.delete(db_meal)
     await db.commit()
+    await cache.delete(f"user_meals:{user_id}")
+    if db_meal.recorded_at:
+        await cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}")
     return {"message": "Meal and its products deleted successfully"}
 

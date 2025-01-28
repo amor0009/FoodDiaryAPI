@@ -14,7 +14,7 @@ meal_products_router = APIRouter()
 
 
 @meal_products_router.get("/{meal_id}")
-async def get_meal_products(
+async def get_all_meal_products(
     meal_id: int,
     db: AsyncSession = Depends(get_async_session),
 ):

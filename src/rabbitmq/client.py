@@ -1,5 +1,7 @@
 import aio_pika
 from src.core.config import RABBITMQ_HOST, RABBITMQ_PORT
+from src.logging_config import logger
+
 
 class RabbitMQClient:
     def __init__(self):
@@ -12,16 +14,18 @@ class RabbitMQClient:
             port=RABBITMQ_PORT
         )
         self.channel = await self.connection.channel()
-        print("Connected to RabbitMQ")
+        logger.info("RabbitMQClient connected")
 
     async def close(self):
         if self.connection:
             await self.connection.close()
-            print("RabbitMQ connection closed")
+            await self.channel.close()
+            logger.info("RabbitMQClient disconnected")
 
     async def declare_queue(self, queue_name, durable=True):
         if not self.channel:
             raise RuntimeError("RabbitMQ channel is not connected")
+        logger.info(f"RabbitMQClient declare_queue with name: {queue_name}")
         return await self.channel.declare_queue(queue_name, durable=durable)
 
 rabbitmq_client = RabbitMQClient()

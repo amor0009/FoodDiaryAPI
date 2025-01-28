@@ -24,3 +24,13 @@ SMTP_HOST = os.environ.get("SMTP_HOST")
 TEMPLATES_PATH = os.environ.get("TEMPLATES_PATH")
 
 FILE_PATH = os.environ.get("FILE_PATH")
+
+REDIRECT_URI = os.environ.get("REDIRECT_URI")
+CLIENT_ID = os.environ.get("CLIENT_ID")
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
+
+GOOGLE_AUTH_URL = os.environ.get("GOOGLE_AUTH_URL")
+GOOGLE_TOKEN_URL = os.environ.get("GOOGLE_TOKEN_URL")
+GOOGLE_USERINFO_URL = os.environ.get("GOOGLE_USERINFO_URL")
+
+REDIS_URL = os.environ.get("REDIS_URL")

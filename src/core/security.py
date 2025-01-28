@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_AUTH, ALGORITHM
 from src.database.database import get_async_session
+from src.logging_config import logger
 from src.services.user_service import find_user_by_login_and_email
 
 
@@ -20,19 +21,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
     try:
         payload = jwt.decode(token, SECRET_AUTH, algorithms=[ALGORITHM])
         login: str = payload.get("sub")
         if login is None:
+            logger.warning(f"Token isn't successfully decoded for user: {login}")
             raise credentials_exception
+        logger.info(f"Token is successfully decoded for user: {login}")
     except PyJWTError:
+        logger.error("Token decoding error")
         raise credentials_exception
 
     user = await find_user_by_login_and_email(db, login)
     if user is None:
+        logger.warning(f"User with login {login} not found")
         raise credentials_exception
-
     return user
 
 

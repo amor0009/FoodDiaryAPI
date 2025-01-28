@@ -4,7 +4,8 @@ from src.core.security import get_current_user
 from src.database.database import get_async_session
 from src.models.user import User
 from src.schemas.meal import MealUpdate, MealCreate
-from src.services.meal_service import get_user_meals, get_meal_products, get_meal_by_id, get_meals_by_date, \
+from src.services.meal_products_service import get_meal_products
+from src.services.meal_service import get_user_meals, get_meal_by_id, get_meals_by_date, \
     get_meals_last_7_days, update_meal, delete_meal, add_meal, get_user_meals_with_products_by_date
 
 meal_router = APIRouter()

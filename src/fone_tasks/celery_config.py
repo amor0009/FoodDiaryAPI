@@ -1,5 +1,6 @@
 from celery import Celery
 from celery.schedules import crontab
+from task import start_rabbitmq_consumer
 
 celery = Celery(
     __name__,
@@ -14,6 +15,11 @@ celery.conf.update(
     timezone="UTC",
     enable_utc=True,
 )
+
+# Функция для старта consumer при запуске Celery worker
+@celery.on_after_configure.connect
+def setup_rabbitmq_consumer(sender, **kwargs):
+    sender.add_periodic_task(10.0, start_rabbitmq_consumer.s(), name="Start RabbitMQ Consumer")
 
 celery.conf.beat_schedule = {
     'delete-old-user-weights-every-day': {

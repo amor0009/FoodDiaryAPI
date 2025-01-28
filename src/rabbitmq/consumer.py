@@ -1,13 +1,14 @@
 import json
-import asyncio
 from aio_pika import IncomingMessage
 from .client import rabbitmq_client
 from src.services.email_service import send_email
+from ..logging_config import logger
 
 
 async def process_message(message: IncomingMessage):
     try:
         print(f"Received message: {message.body.decode()}")
+        logger.info(f'Received message: {message.body.decode()}')
         data = json.loads(message.body.decode())
         to_email = data.get("email")
         user_name = data.get("login")
@@ -20,7 +21,8 @@ async def process_message(message: IncomingMessage):
                 context={"user_name": user_name}
             )
         await message.ack()
-        print("Message acknowledged and removed from the queue")
+        print("Message is acknowledged and removed from the queue")
+        logger.info(f"Message: {message.body.decode()} - is acknowledged and removed from the queue")
     except Exception as e:
         print(f"Error processing message: {e}")
 
@@ -31,15 +33,5 @@ async def consume_messages(queue_name: str = "registration_queue"):
 
     queue = await rabbitmq_client.declare_queue(queue_name, durable=True)
     print(f"Started consuming messages from {queue_name}")
+    logger.info(f"Started consuming messages from {queue_name}")
     await queue.consume(process_message)
-
-"""
-async def main():
-    await rabbitmq_client.connect()
-    await consume_messages("registration_queue")
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Consumer stopped manually") """

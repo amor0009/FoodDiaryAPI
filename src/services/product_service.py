@@ -1,23 +1,39 @@
+import json
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from fastapi.encoders import jsonable_encoder
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.meal import Meal
 from src.models.meal_products import MealProducts
 from src.models.product import Product
-from src.schemas.product import ProductCreate, ProductUpdate, ProductAdd
+from src.schemas.product import ProductCreate, ProductUpdate, ProductAdd, ProductRead
+from src.cache.cache import cache
 
 
 async def get_products(db: AsyncSession, user_id: int):
+    cache_key = f"products:{user_id}"
+    cached_products = await cache.get(cache_key)
+    if cached_products:
+        return cached_products
     query = select(Product).where(
-        (Product.is_public == True) | (Product.user_id == user_id)
+        or_((Product.is_public == True), (Product.user_id == user_id))
     )
     result = await db.execute(query)
     products = result.scalars().all()
+    products = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, products, expire=3600)
     return products
 
 
 async def add_product(db: AsyncSession, product: ProductCreate, user_id: int):
-    db_product = Product(
+    db_product = get_product_by_name(db, product.name, user_id)
+    if db_product:
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Product {product.name} already exists",
+        )
+
+    new_product = Product(
         name=product.name,
         calories=product.calories,
         proteins=product.proteins,
@@ -26,10 +42,12 @@ async def add_product(db: AsyncSession, product: ProductCreate, user_id: int):
         is_public=False,
         user_id=user_id
     )
-    db.add(db_product)
+    db.add(new_product)
     await db.commit()
-    await db.refresh(db_product)
-    return db_product
+    await db.refresh(new_product)
+    cache_key = f"products:{user_id}"
+    await cache.delete(cache_key)
+    return new_product
 
 
 async def change_product_info_for_weight(db: AsyncSession, product: ProductAdd, user_id: int):
@@ -81,48 +99,83 @@ async def add_product_to_meal(db:AsyncSession, meal_id: int, product: ProductAdd
 
 
 async def get_available_products(db: AsyncSession, user_id: int):
-    query = select(Product).where((Product.is_public == True) | (Product.user_id == user_id)).all()
+    cache_key = f"products:{user_id}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
+    query = select(Product).where(or_((Product.is_public == True), (Product.user_id == user_id))).all()
     result = await db.execute(query)
     products = result.scalars().all()
+    products_dict = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, products_dict, expire=3600)
     return products
 
 
 async def get_product_by_name(db: AsyncSession, product_name: str, user_id: int):
-    query = select(Product).where((Product.is_public == True) | (Product.user_id == user_id),
+    cache_key = f"products:{user_id}:{product_name}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
+    query = select(Product).where(or_((Product.is_public == True), (Product.user_id == user_id)),
                                     Product.name.ilike(f"%{product_name}%")).all()
     result = await db.execute(query)
-    product = result.scalars().all()
-    return product
+    products = result.scalars().all()
+    products_dict = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, products_dict, expire=3600)
+    return products
 
 
 async def get_product_by_id(db: AsyncSession, product_id: int, user_id: int):
-    query = select(Product).where(
-        (Product.id == product_id) &
-        ((Product.is_public == True) | (Product.user_id == user_id))
+    cache_key = f"products:{user_id}:{product_id}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
+    query = select(Product).where(and_(
+        (Product.id == product_id),
+        ((Product.is_public == True) | (Product.user_id == user_id)))
     ).first()
     result = await db.execute(query)
-    product = result.scalars().all()
-    return product
+    products = result.scalars().all()
+    products_dict = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, products_dict, expire=3600)
+    return products
 
 
 async def get_product_available_to_change_by_id(db: AsyncSession, product_id: int, user_id: int):
+    cache_key = f"personal_product:{user_id}:{product_id}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     query = select(Product).where(
         (Product.id == product_id) &
         ((Product.is_public == False) & (Product.user_id == user_id))
     ).first()
     result = await db.execute(query)
-    product = result.scalars().all()
-    return product
+    products = result.scalars().all()
+    products_dict = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, products_dict, expire=3600)
+    return products
 
 
 async def get_product_available_to_change_by_name(db: AsyncSession, product_name: str, user_id: int):
+    cache_key = f"personal_product:{user_id}:{product_name}"
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
+
     query = select(Product).where(
-        (Product.name == product_name) &
-        ((Product.is_public == False) & (Product.user_id == user_id))
+        and_((Product.name == product_name),
+        and_(((Product.is_public == False), (Product.user_id == user_id))))
     ).first()
     result = await db.execute(query)
-    product = result.scalars().all()
-    return product
+    products = result.scalars().all()
+    product_dict = [ProductRead.model_validate(product).model_dump(mode="json") for product in products]
+    await cache.set(cache_key, product_dict, expire=3600)
+    return products
 
 
 async def update_product(db: AsyncSession, product_update: ProductUpdate, user_id: int):
@@ -151,6 +204,11 @@ async def update_product(db: AsyncSession, product_update: ProductUpdate, user_i
         )
     await db.commit()
     await db.refresh(db_product)
+    await cache.delete(f"products:{user_id}")
+    await cache.delete(f"personal_product:{user_id}:{db_product.id}")
+    await cache.delete(f"personal_product:{user_id}:{db_product.name}")
+    await cache.delete(f"products:{user_id}:{db_product.id}")
+    await cache.delete(f"products:{user_id}:{db_product.name}")
     return db_product
 
 
@@ -160,7 +218,7 @@ async def searching_products(db: AsyncSession, user_id: int, query: str):
 
     formatted_query = query.capitalize()
     query = select(Product).where(
-        (Product.is_public == True) | (Product.user_id == user_id),
+        or_((Product.is_public == True), (Product.user_id == user_id)),
         Product.name.ilike(f"{formatted_query}%")
     )
     result = await db.execute(query)
@@ -173,6 +231,11 @@ async def delete_product(db: AsyncSession, user_id: int, product_id: int):
     if product is not None:
         await db.delete(product)
         await db.commit()
+        await cache.delete(f"products:{user_id}")
+        await cache.delete(f"personal_product:{user_id}:{product.id}")
+        await cache.delete(f"personal_product:{user_id}:{product.name}")
+        await cache.delete(f"products:{user_id}:{product.id}")
+        await cache.delete(f"products:{user_id}:{product.name}")
         return product
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,

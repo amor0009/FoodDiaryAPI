@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import get_current_user
@@ -15,17 +13,17 @@ user_weight_router = APIRouter()
 async def update_user_weight(user_weight: UserWeightUpdate,
                             db: AsyncSession = Depends(get_async_session),
                             current_user: User = Depends(get_current_user)):
-    return await save_or_update_weight(user_weight, db, current_user)
+    return await save_or_update_weight(user_weight, db, current_user.id)
 
 
 @user_weight_router.get("/me/{current_date}")
 async def get_user_weight(current_date: str,
                           db: AsyncSession = Depends(get_async_session),
                           current_user: User = Depends(get_current_user)):
-    return await get_current_weight(current_date, db, current_user)
+    return await get_current_weight(current_date, db, current_user.id)
 
 
 @user_weight_router.get("/history/me")
 async def get_user_weight_history(db: AsyncSession = Depends(get_async_session),
                           current_user: User = Depends(get_current_user)):
-    return await get_weights(db, current_user)
+    return await get_weights(db, current_user.id)
