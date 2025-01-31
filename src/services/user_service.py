@@ -1,9 +1,6 @@
-import datetime
-
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.cache.cache import cache
 from src.logging_config import logger
 from src.models.user import User
@@ -14,17 +11,16 @@ from src.services.user_weight_service import save_or_update_weight
 
 async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
     cache_key = f"user:{email_login}"
-    await cache.delete(cache_key)
     cached_user = await cache.get(cache_key)
 
     if cached_user:
         logger.info(f"Cache hit for user: {email_login}")
-        return UserRead.model_validate(cached_user)
+        return cached_user
 
     logger.info(f"Cache miss for user: {email_login}. Fetching from database.")
     query = select(User).where(or_(User.login == email_login, User.email == email_login))
-    result = await db.execute(query)
-    user = result.scalars().first()
+    result = await db.execute(query)  # Вернёт mock_result
+    user = result.scalar_one_or_none()  # Вызываем scalar_one_or_none()
 
     if user:
         # Сериализация пользователя в JSON-совместимый формат для кэша
@@ -90,7 +86,7 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
                 user_id=user.id,
                 weight=user.weight,
             )
-            await save_or_update_weight(user_weight, db, current_user)
+            await save_or_update_weight(user_weight, db, current_user.id)
 
         await db.commit()
         await db.refresh(user)

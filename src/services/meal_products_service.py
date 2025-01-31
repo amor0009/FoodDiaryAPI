@@ -1,4 +1,3 @@
-import json
 from fastapi import HTTPException
 from sqlalchemy import and_
 from sqlalchemy.future import select

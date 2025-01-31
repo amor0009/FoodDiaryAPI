@@ -1,4 +1,3 @@
-import logging
 from datetime import date, timedelta, datetime
 from fastapi import HTTPException, status
 from sqlalchemy import select, and_, delete
@@ -6,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from src.cache.cache import cache
+from src.logging_config import logger
 from src.models.meal import Meal
 from src.models.meal_products import MealProducts
 from src.schemas.meal import MealCreate, MealUpdate, MealRead
