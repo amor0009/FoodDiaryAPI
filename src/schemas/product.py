@@ -18,14 +18,15 @@ class ProductRead(BaseModel):
 
 
 class ProductUpdate(BaseModel):
-    name: str
-    weight: float
-    calories: float
-    proteins: float
-    fats: float
-    carbohydrates: float
-    description: str
-    picture_path: str
+    id: int
+    name: Optional[str] = None
+    weight: Optional[float] = None
+    calories: Optional[float] = None
+    proteins: Optional[float] = None
+    fats: Optional[float] = None
+    carbohydrates: Optional[float] = None
+    description: Optional[str] = None
+    picture_path: Optional[str] = None
 
 
 class ProductCreate(BaseModel):

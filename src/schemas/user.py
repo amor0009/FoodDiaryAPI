@@ -12,6 +12,7 @@ class UserRead(BaseModel):
     height: Optional[int] = None
     weight: Optional[int] = None
     gender: Optional[str] = None
+    activity_level: Optional[str] = None
     aim: Optional[str] = None
     recommended_calories: Optional[float] = None
     profile_image: Optional[str] = None
@@ -30,6 +31,7 @@ class UserUpdate(BaseModel):
     height: Optional[int] = None
     weight: Optional[int] = None
     gender: Optional[str] = None
+    activity_level: Optional[str] = None
     aim: Optional[str] = None
     recommended_calories: Optional[float] = None
     profile_image: Optional[str] = None

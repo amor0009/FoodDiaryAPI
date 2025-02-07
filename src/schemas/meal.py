@@ -1,11 +1,10 @@
-from datetime import datetime
+from datetime import date
 from typing import List, Optional
 from pydantic import BaseModel
-from src.schemas.product import ProductRead
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.schemas.meal_products import MealProductsCreate, MealProductsUpdate
+from src.schemas.meal_products import MealProductsUpdate, MealProductsCreate
+from src.schemas.product import ProductRead
+
 
 
 class MealRead(BaseModel):
@@ -16,7 +15,7 @@ class MealRead(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    recorded_at: datetime
+    recorded_at: date
     user_id: int
     products: Optional[List[ProductRead]] = []
 
@@ -44,7 +43,7 @@ class MealUpdate(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    products: Optional[List['MealProductsUpdate']] = []
+    products: Optional[List[MealProductsUpdate]] = []
 
 
 class MealCreate(BaseModel):
@@ -54,5 +53,4 @@ class MealCreate(BaseModel):
     proteins: float
     fats: float
     carbohydrates: float
-    products: Optional[List['MealProductsCreate']] = []
-
+    products: Optional[List[MealProductsCreate]] = []

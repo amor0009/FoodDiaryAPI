@@ -1,130 +1,125 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User
-from src.schemas.user import UserRead, UserUpdate
-from src.services.user_service import find_user_by_login_and_email, delete_user, update_user
+from src.schemas.user import UserUpdate, UserRead
+from src.services.user_service import delete_user, update_user, find_user_by_login_and_email, \
+    calculate_recommended_nutrients
+from src.cache.cache import cache
 
 
 @pytest.mark.asyncio
-async def test_find_user_by_login_and_email_cache_hit():
-    mock_cache = AsyncMock()
-    mock_db = AsyncMock()
-    email_login = "test_user"
+async def test_delete_user(test_db: AsyncSession):
+    user = User(
+        id=1,
+        login="testuser",
+        email="test@example.com",
+        hashed_password="hashed_test_password",
+    )
+    test_db.add(user)
+    await test_db.commit()
+    await test_db.refresh(user)
 
-    # Данные, которые вернутся из кэша
-    cached_user = {"id": 1, "login": email_login, "email": "test@example.com"}
-    mock_cache.get.return_value = cached_user
+    await delete_user(test_db, user)
 
-    with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email_login)
-
-        # Проверяем, что данные из кэша возвращаются корректно
-        assert user == cached_user
-        mock_cache.get.assert_called_once_with(f"user:{email_login}")
-        mock_db.execute.assert_not_called()  # База данных не должна вызываться
-
-
-@pytest.mark.asyncio
-async def test_find_user_by_login_and_email_cache_miss():
-    mock_cache = AsyncMock()
-    mock_db = AsyncMock()
-    email_login = "test_user"
-
-    mock_cache.get.return_value = None  # Нет данных в кэше
-
-    # Пользователь из БД
-    user_from_db = User(id=1, login=email_login, email="test@example.com")
-
-    # Правильный мок SQLAlchemy execute() -> scalar_one_or_none()
-    mock_result = AsyncMock()
-    mock_result.scalar_one_or_none = MagicMock(return_value=user_from_db)
-
-    mock_db.execute.return_value = mock_result  # execute() вернёт mock_result
-
-    with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email_login)
-
-        assert user.id == user_from_db.id
-        assert user.login == user_from_db.login
-        assert user.email == user_from_db.email
-
-        mock_cache.get.assert_called_once_with(f"user:{email_login}")
-
-        mock_cache.set.assert_called_once_with(
-            f"user:{email_login}",
-            UserRead.model_validate(user_from_db).model_dump(mode="json"),
-            expire=3600,
-        )
+    deleted_user = await test_db.get(User, user.id)
+    assert deleted_user is None
 
 
 @pytest.mark.asyncio
-async def test_delete_user():
-    # Создаем моки
-    mock_db = AsyncMock()
-    mock_cache = AsyncMock()
+async def test_update_user(test_cache, test_db: AsyncSession):
+    user = User(
+        login="test_user",
+        email="test@example.com",
+        hashed_password="hashed_test_password",
+        weight=69,
+        firstname="test",
+    )
+    test_db.add(user)
+    await test_db.commit()
+    await test_db.refresh(user)
 
-    # Пользователь для удаления
-    user = User(id=1, login="testuser", email="test@example.com")
-
-    # Патчим кэш
-    with patch("src.services.user_service.cache", mock_cache):
-        # Вызываем тестируемую функцию
-        deleted_user = await delete_user(mock_db, user)
-
-        # Проверяем, что удаление из базы вызвано
-        mock_db.delete.assert_called_once_with(user)
-
-        # Проверяем, что был вызван commit
-        mock_db.commit.assert_called_once()
-
-        # Проверяем, что пользователь удаляется из кэша
-        mock_cache.delete.assert_called_once_with("user:testuser")
-
-        # Проверяем, что возвращается сам пользователь
-        assert deleted_user == user
-
-
-@pytest.mark.asyncio
-async def test_update_user():
-    # Создаем моки
-    mock_db = AsyncMock()
-    mock_cache = AsyncMock()
-    mock_find_user = AsyncMock()
-    mock_save_weight = AsyncMock()
-
-    # Данные текущего пользователя
-    current_user = User(id=1, login="testuser", email="test@example.com", weight=70)
-
-    # Данные для обновления
     user_update = UserUpdate(
-        firstname="testusername",
-        weight=75,  # Меняем вес
+        login="testuser",
+        email="test@example.com",
+        firstname="new_test_name",
+        weight=75,
     )
 
-    # Патчим зависимости
-    with patch("src.services.user_service.cache", mock_cache):
-        with patch("src.services.user_service.find_user_by_login_and_email", mock_find_user):
-            with patch("src.services.user_service.save_or_update_weight", mock_save_weight):
-                # Настраиваем возвращаемое значение поиска пользователя
-                mock_find_user.return_value = current_user
+    updated_user = await update_user(user_update, test_db, user)
 
-                # Вызываем тестируемую функцию
-                updated_user = await update_user(user_update, mock_db, current_user)
+    assert updated_user.firstname == "new_test_name"
+    assert updated_user.weight == 75
 
-                # Проверяем, что `find_user_by_login_and_email` вызван
-                mock_find_user.assert_called_once_with(mock_db, "testuser")
 
-                # Проверяем, что обновился firstname
-                assert updated_user.firstname == "testusername"
+@pytest.mark.asyncio
+async def test_find_user_with_login_and_email(test_db: AsyncSession, test_cache):
+    test_user = User(
+        id=2,
+        login="testuser1",
+        email="test1@example.com",
+        hashed_password="testpassword"
+    )
+    test_db.add(test_user)
+    await test_db.commit()
+    await test_db.refresh(test_user)
 
-                # Проверяем, что обновился вес
-                assert updated_user.weight == 75
+    await cache.delete(f"user:{test_user.login}")
+    await cache.delete(f"user:{test_user.email}")
 
-                # Проверяем, что был вызван commit
-                mock_db.commit.assert_called_once()
+    user_from_db = await find_user_by_login_and_email(test_db, "test1@example.com")
+    assert user_from_db is not None
+    assert user_from_db.email == "test1@example.com"
+    assert user_from_db.login == "testuser1"
 
-                # Проверяем, что был обновлен кэш
-                mock_cache.delete.assert_called_once_with("user:testuser")
+    cached_user = await cache.get(f"user:{test_user.email}")
+    assert cached_user is not None
+    assert cached_user["login"] == "testuser1"
+    assert cached_user["email"] == "test1@example.com"
 
-                # Проверяем, что `save_or_update_weight` вызван при изменении веса
-                mock_save_weight.assert_called_once()
+    user_from_cache = await find_user_by_login_and_email(test_db, "test1@example.com")
+    assert user_from_cache is not None
+    assert user_from_cache.login == "testuser1"
+    assert user_from_cache.email == "test1@example.com"
+
+
+@pytest.mark.asyncio
+async def test_calculate_recommended_nutrients(test_cache):
+    user = UserRead(
+        id=1,
+        login="testuser",
+        email="test@example.com",
+        firstname="Иван",
+        lastname="Иванов",
+        age=30,
+        height=175,
+        weight=70,
+        gender="male",
+        aim="gain",
+        activity_level="moderate"
+    )
+
+    await cache.delete(f"user_nutrients:{user.id}")
+
+    result = await calculate_recommended_nutrients(user)
+    assert result is not None
+    assert len(result) == 4
+    assert result["calories"] == 3066.67
+    assert result["fat"] == 85.19
+    assert result["protein"] == 191.67
+    assert result["carbohydrates"] == 383.33
+
+    cached_result = await cache.get(f"user_nutrients:{user.id}")
+    assert cached_result is not None
+    assert len(cached_result) == 4
+    assert cached_result["calories"] == 3066.67
+    assert cached_result["fat"] == 85.19
+    assert cached_result["protein"] == 191.67
+    assert cached_result["carbohydrates"] == 383.33
+
+    result_from_cache = await calculate_recommended_nutrients(user)
+    assert result_from_cache is not None
+    assert len(result_from_cache) == 4
+    assert result_from_cache["calories"] == result["calories"]
+    assert result_from_cache["fat"] == result["fat"]
+    assert result_from_cache["protein"] == result["protein"]
+    assert result_from_cache["carbohydrates"] == result["carbohydrates"]

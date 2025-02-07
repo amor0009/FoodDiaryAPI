@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import date
 from sqlalchemy import Column, Integer, String, Double, Date
 from sqlalchemy.orm import relationship
 from src.database.database import Base
+
 
 class User(Base):
     __tablename__ = "user"
@@ -17,9 +18,10 @@ class User(Base):
     weight = Column(Double, nullable=True)
     gender = Column(String, nullable=True)
     aim = Column(String, nullable=True)
+    activity_level = Column(String, nullable=True)
     recommended_calories = Column(Double, nullable=True)
     profile_image = Column(String, nullable=True)
-    registered_at = Column(Date, nullable=False, default=datetime.now().date, unique=True)
+    registered_at = Column(Date, nullable=False, default=date.today())
 
     meals = relationship('Meal', back_populates='user')
     products = relationship("Product", back_populates="user")

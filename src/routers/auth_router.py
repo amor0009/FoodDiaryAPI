@@ -130,7 +130,7 @@ async def login(email_login: str, password: str, db: AsyncSession = Depends(get_
             detail="Неверный логин или пароль")
 
     access_token = create_access_token(data={"sub": email_login})
-    logger.info(f"Пользователь {email_login} успешно авторизован")
+    logger.info(f"Пользователь {email_login} успешно авторизован:{user}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 

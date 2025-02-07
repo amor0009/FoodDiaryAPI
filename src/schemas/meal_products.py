@@ -1,10 +1,5 @@
 from pydantic import BaseModel
-from src.schemas.meal import MealRead
-from src.schemas.product import ProductRead
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.schemas.meal import MealRead  # Используем TYPE_CHECKING
 
 class MealProductsRead(BaseModel):
     product_weight: float

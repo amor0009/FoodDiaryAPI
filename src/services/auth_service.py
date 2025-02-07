@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.cache.cache import cache
 from src.core.security import verify_password, get_password_hash
@@ -13,22 +14,20 @@ from src.services.user_service import find_user_by_login_and_email
 async def authenticate_user(db: AsyncSession, email_login: str, password: str):
     cache_key = f"user_auth:{email_login}"
     try:
-        # Проверка кэша
         cached_user = await cache.get(cache_key)
         if cached_user:
             logger.info(f"Cache hit for user authentication: {email_login}")
-            # Возвращаем объект UserRead, используя данные из кэша
-            return cached_user
+            return UserRead.model_validate(cached_user)
 
         logger.info(f"Cache miss for user authentication: {email_login}. Fetching from database.")
-        user = await find_user_by_login_and_email(db, email_login)
+        query = select(User).where(or_(User.login == email_login, User.email == email_login))
+        result = await db.execute(query)  # Вернёт mock_result
+        user = result.scalar_one_or_none()  # Вызываем scalar_one_or_none()
 
-        # Проверка пароля
         if user and verify_password(password, user.hashed_password):
-            # Преобразование пользователя в Pydantic-модель и сериализация для кэша
-            user_pydantic = UserRead.model_validate(user).model_dump(mode="json")
-            await cache.set(cache_key, user_pydantic)  # Сохранение в кэш
-            return UserRead.model_validate(user_pydantic)  # Возвращаем объект UserRead
+            user_pydantic = UserRead.model_validate(user)
+            await cache.set(cache_key, user_pydantic.model_dump(mode="json"))
+            return user_pydantic
 
         return None
     except Exception as e:
@@ -74,7 +73,7 @@ async def create_user(db: AsyncSession, user: UserCreate):
         await publish_message(message_data, "registration_queue")
 
         logger.info(f"User created successfully: {new_user.login}")
-        return new_user
+        return UserRead.model_validate(new_user)
     except Exception as e:
         logger.error(f"Error creating user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

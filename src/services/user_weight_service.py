@@ -26,17 +26,18 @@ async def save_or_update_weight(user_weight: UserWeightUpdate, db: AsyncSession,
         else:
             # Иначе создаем новую запись
             logger.info(f"Creating new weight record for user {user_id}")
-            new_user_weight = UserWeight(
+            user_weight_db = UserWeight(
                 user_id=user_id,
-                weight=user_weight.weight
+                weight=user_weight.weight,
+                recorded_at=current_date  # Добавляем дату для новой записи
             )
-            db.add(new_user_weight)
+            db.add(user_weight_db)
 
         await db.commit()
         await cache.delete(cache_key)
         logger.info(f"Weight deleted from cache for user {user_id} on {current_date}")
 
-        return user_weight
+        return UserWeightRead.model_validate(user_weight_db)
     except Exception as e:
         logger.error(f"Error saving or updating weight for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -48,7 +49,7 @@ async def get_current_weight(current_date: str, db: AsyncSession, user_id: int):
         cached_weight = await cache.get(cache_key)
         if cached_weight:
             logger.info(f"Cache hit for current weight of user {user_id} on {current_date}")
-            return cached_weight
+            return UserWeightRead.model_validate(cached_weight)
 
         logger.info(f"Cache miss for current weight of user {user_id} on {current_date}")
         current_date_obj = datetime.strptime(current_date, '%Y-%m-%d').date()
@@ -61,11 +62,12 @@ async def get_current_weight(current_date: str, db: AsyncSession, user_id: int):
 
         # Сохраняем в кэш, если запись найдена
         if user_weight:
-            weight_data = UserWeightRead.model_validate(user_weight).model_dump(mode="json")
-            await cache.set(cache_key, weight_data, expire=3600)
+            weight_pydantic = UserWeightRead.model_validate(user_weight)
+            await cache.set(cache_key, weight_pydantic.model_dump(mode="json"), expire=3600)
             logger.info(f"Current weight cached for user {user_id} on {current_date}")
+            return weight_pydantic
 
-        return user_weight
+        return None
     except Exception as e:
         logger.error(f"Error retrieving current weight for user {user_id} on {current_date}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -77,7 +79,7 @@ async def get_weights(db: AsyncSession, user_id: int):
         cached_weights = await cache.get(cache_key)
         if cached_weights:
             logger.info(f"Cache hit for weight history of user {user_id}")
-            return cached_weights
+            return [UserWeightRead.model_validate(weight) for weight in cached_weights]
 
         logger.info(f"Cache miss for weight history of user {user_id}")
         thirty_days_ago = datetime.today() - timedelta(days=30)
@@ -88,11 +90,11 @@ async def get_weights(db: AsyncSession, user_id: int):
             ).order_by(UserWeight.recorded_at)
         )
         weight_history = result.scalars().all()
-        weight_history_list = [UserWeightRead.model_validate(weight).model_dump(mode="json") for weight in weight_history]
-        await cache.set(cache_key, weight_history_list, expire=3600)
+        weight_history_list = [UserWeightRead.model_validate(weight) for weight in weight_history]
+        await cache.set(cache_key, [weight.model_dump(mode="json") for weight in weight_history_list], expire=3600)
         logger.info(f"Weight history cached for user {user_id}")
 
-        return weight_history
+        return weight_history_list
     except Exception as e:
         logger.error(f"Error retrieving weight history for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
