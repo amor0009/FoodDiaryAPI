@@ -3,7 +3,6 @@ from sqlalchemy import Column, Integer, Double, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from src.database.database import Base
 
-
 class UserWeight(Base):
     __tablename__ = 'user_weight'
 

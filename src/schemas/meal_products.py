@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class MealProductsRead(BaseModel):
     product_weight: float
     meal_id: int

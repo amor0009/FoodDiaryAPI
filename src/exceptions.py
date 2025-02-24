@@ -18,7 +18,6 @@ async def temporary_redirect_handler(request: Request, exc: HTTPException):
         headers=exc.headers  # Если нужно передать заголовки, например "Location"
     )
 
-# Обработчики для конкретных кодов ошибок
 # 405: Method Not Allowed
 async def method_not_allowed_handler(request: Request, exc: HTTPException):
     logger.error(f"Ошибка 405 (Method Not Allowed) на {request.url}: {str(exc)}")

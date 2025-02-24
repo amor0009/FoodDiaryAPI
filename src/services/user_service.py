@@ -8,28 +8,31 @@ from src.schemas.user import UserUpdate, UserRead
 from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import save_or_update_weight
 
+async def find_user_by_login_and_email(db: AsyncSession, email: str, login: str):
+    cache_key = f"user:{email}:{login}"
 
-async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
-    cache_key = f"user:{email_login}"
-    cached_user = await cache.get(cache_key)
+    try:
+        # Проверяем наличие пользователя в кэше
+        cached_user = await cache.get(cache_key)
+        if cached_user:
+            logger.info(f"Cache hit for user: {email} or {login}")
+            return UserRead.model_validate(cached_user)
 
-    if cached_user:
-        logger.info(f"Cache hit for user: {email_login}")
-        return UserRead.model_validate(cached_user)
+        # Если в кэше нет, делаем запрос в БД
+        logger.info(f"Cache miss for user: {email} or {login}. Fetching from database.")
+        query = select(User).where(or_(User.login == login, User.email == email))
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
 
-    logger.info(f"Cache miss for user: {email_login}. Fetching from database.")
-    query = select(User).where(or_(User.login == email_login, User.email == email_login))
-    result = await db.execute(query)  # Вернёт mock_result
-    user = result.scalar_one_or_none()  # Вызываем scalar_one_or_none()
+        if user:
+            user_pydantic = UserRead.model_validate(user)
+            await cache.set(cache_key, user_pydantic.model_dump(mode="json"), expire=3600)
+            return user_pydantic
 
-    if user:
-        # Сериализация пользователя в JSON-совместимый формат для кэша
-        user_pydantic = UserRead.model_validate(user)
-        await cache.set(cache_key, user_pydantic.model_dump(mode="json"), expire=3600)
-        return user_pydantic
-
-    return None
-
+        return None
+    except Exception as e:
+        logger.error(f"Error finding user by login or email ({email}, {login}): {str(e)}")
+        return None
 
 async def delete_user(db: AsyncSession, user: User):
     cache_key = f"user:{user.login}"
@@ -46,7 +49,6 @@ async def delete_user(db: AsyncSession, user: User):
     except Exception as e:
         logger.error(f"Error deleting user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: User):
     cache_key = f"user:{current_user.login}"
@@ -102,7 +104,6 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
     except Exception as e:
         logger.error(f"Error updating user {current_user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 async def calculate_recommended_nutrients(user: UserRead):
     """

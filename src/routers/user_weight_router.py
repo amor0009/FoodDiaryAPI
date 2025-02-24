@@ -8,20 +8,17 @@ from src.services.user_weight_service import get_current_weight, get_weights, sa
 
 user_weight_router = APIRouter()
 
-
 @user_weight_router.put("/me")
 async def update_user_weight(user_weight: UserWeightUpdate,
                             db: AsyncSession = Depends(get_async_session),
                             current_user: User = Depends(get_current_user)):
     return await save_or_update_weight(user_weight, db, current_user.id)
 
-
 @user_weight_router.get("/me/{current_date}")
 async def get_user_weight(current_date: str,
                           db: AsyncSession = Depends(get_async_session),
                           current_user: User = Depends(get_current_user)):
     return await get_current_weight(current_date, db, current_user.id)
-
 
 @user_weight_router.get("/history/me")
 async def get_user_weight_history(db: AsyncSession = Depends(get_async_session),

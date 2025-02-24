@@ -13,7 +13,6 @@ from src.schemas.meal import MealCreate, MealUpdate, MealRead
 from src.services.meal_products_service import update_meal_product, delete_meal_product
 from src.services.product_service import recalculate_product_nutrients
 
-
 async def recalculate_meal_nutrients(meal: Meal):
     """Пересчитывает характеристики приёма пищи на основе продуктов."""
     logger.info(f"Recalculating nutrients for meal {meal.id} ({meal.name})")
@@ -67,7 +66,6 @@ async def recalculate_meal_nutrients(meal: Meal):
         products=products
     )
 
-
 async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
     try:
         db_meal = Meal(
@@ -104,7 +102,6 @@ async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
         await db.rollback()
         raise ValueError("Failed to create meal or associated meal products.")
 
-
 async def get_user_meals(db: AsyncSession, user_id: int):
     cache_key = f"user_meals:{user_id}"
     cached_data = await cache.get(cache_key)
@@ -118,7 +115,6 @@ async def get_user_meals(db: AsyncSession, user_id: int):
     meal_list = [MealRead.model_validate(meal) for meal in meals]
     await cache.set(cache_key, [meal.model_dump(mode="json") for meal in meal_list], expire=3600)
     return meal_list
-
 
 async def get_user_meals_with_products_by_date(db: AsyncSession, user_id: int, target_date: str):
     cache_key = f"user_meals_products:{user_id}:{target_date}"
@@ -143,7 +139,6 @@ async def get_user_meals_with_products_by_date(db: AsyncSession, user_id: int, t
     await cache.set(cache_key, [meal.model_dump(mode="json") for meal in formatted_meals], expire=3600)
     return formatted_meals
 
-
 async def get_meal_by_id(db: AsyncSession, meal_id: int, user_id: int):
     cache_key = f"user_meal:{user_id}:{meal_id}"
     cached_data = await cache.get(cache_key)
@@ -159,7 +154,6 @@ async def get_meal_by_id(db: AsyncSession, meal_id: int, user_id: int):
     meal_dict = MealRead.model_validate(meal).model_dump(mode="json")
     await cache.set(cache_key, meal_dict, expire=3600)
     return MealRead.model_validate(meal)
-
 
 async def get_meals_by_date(db: AsyncSession, user_id: int, target_date: str):
     cache_key = f"user_meals:{user_id}:{target_date}"
@@ -178,7 +172,6 @@ async def get_meals_by_date(db: AsyncSession, user_id: int, target_date: str):
     await cache.set(cache_key, [meal.model_dump(mode="json") for meal in meals_list], expire=3600)
     return meals_list
 
-
 async def get_meals_last_7_days(db: AsyncSession, user_id: int):
     cache_key= f"user_meals_history:{user_id}"
     cached_data = await cache.get(cache_key)
@@ -195,7 +188,6 @@ async def get_meals_last_7_days(db: AsyncSession, user_id: int):
     meals_list = [MealRead.model_validate(meal) for meal in meals]
     await cache.set(cache_key, [meal.model_dump(mode="json") for meal in meals_list], expire=3600)
     return meals_list
-
 
 async def update_meal(db: AsyncSession, meal_update: MealUpdate, meal_id: int, user_id: int):
     # Получаем блюдо с продуктами
@@ -264,7 +256,6 @@ async def update_meal(db: AsyncSession, meal_update: MealUpdate, meal_id: int, u
         await cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}")
 
     return updated_meal
-
 
 async def delete_meal(db: AsyncSession, meal_id: int, user_id: int):
     meal = await get_meal_by_id(db, meal_id, user_id)

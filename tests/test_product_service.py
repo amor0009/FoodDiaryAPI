@@ -10,7 +10,6 @@ from src.services.product_service import get_products, add_product, change_produ
     recalculate_product_nutrients
 from src.cache.cache import cache
 
-
 @pytest.mark.asyncio
 async def test_recalculate_product_nutrients():
     # Исходные данные продукта (на 100 г)
@@ -68,7 +67,6 @@ async def test_recalculate_product_nutrients():
         picture_path="/images/test.png"
     )
 
-
 @pytest.mark.asyncio
 async def test_get_products(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -107,7 +105,6 @@ async def test_get_products(test_db: AsyncSession, test_cache):
     assert len(cached_products) == 1
     assert cached_products[0]["name"] == "Apple"
 
-
 @pytest.mark.asyncio
 async def test_add_product(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -140,7 +137,6 @@ async def test_add_product(test_db: AsyncSession, test_cache):
     cached_products = await cache.get(f"products:{test_user.id}")
     assert cached_products is None
 
-
 @pytest.mark.asyncio
 async def test_change_product_info_for_weight(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -167,7 +163,6 @@ async def test_change_product_info_for_weight(test_db: AsyncSession, test_cache)
     assert updated_product.calories == 65
     assert updated_product.proteins == 1.35
 
-
 @pytest.mark.asyncio
 async def test_add_product_to_meal(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -193,7 +188,6 @@ async def test_add_product_to_meal(test_db: AsyncSession, test_cache):
 
     assert updated_meal.weight == 50
     assert updated_meal.calories == 82.5
-
 
 @pytest.mark.asyncio
 async def test_get_available_products(test_db: AsyncSession, test_cache):
@@ -263,7 +257,6 @@ async def test_get_available_products(test_db: AsyncSession, test_cache):
     assert products_from_cache[0].name == cached_products[0]["name"]
     assert products_from_cache[1].name == cached_products[1]["name"]
 
-
 @pytest.mark.asyncio
 async def test_get_products_by_name(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -319,7 +312,6 @@ async def test_get_products_by_name(test_db: AsyncSession, test_cache):
     assert products_from_cache[0].name == cached_products[0]["name"]
     assert products_from_cache[1].name == cached_products[1]["name"]
 
-
 @pytest.mark.asyncio
 async def test_get_product_by_exact_name(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -359,7 +351,6 @@ async def test_get_product_by_exact_name(test_db: AsyncSession, test_cache):
     assert product_from_cache is not None
     assert product_from_cache.name == cached_product["name"]
 
-
 @pytest.mark.asyncio
 async def test_get_product_by_id(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -397,7 +388,6 @@ async def test_get_product_by_id(test_db: AsyncSession, test_cache):
     assert product_from_cache is not None
     assert product_from_cache.name == cached_product["name"]
 
-
 @pytest.mark.asyncio
 async def test_update_product(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -431,7 +421,6 @@ async def test_update_product(test_db: AsyncSession, test_cache):
     updated_product = await update_product(test_db, update_data, test_user.id)
     assert updated_product.name == "Greek Yogurt"
     assert updated_product.calories == 61
-
 
 @pytest.mark.asyncio
 async def test_get_product_available_to_change_by_id(test_db: AsyncSession, test_cache):
@@ -475,7 +464,6 @@ async def test_get_product_available_to_change_by_id(test_db: AsyncSession, test
     assert product_from_cache is not None
     assert product_from_cache.name == cached_product["name"]
 
-
 @pytest.mark.asyncio
 async def test_get_product_available_to_change_by_name(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -517,7 +505,6 @@ async def test_get_product_available_to_change_by_name(test_db: AsyncSession, te
     assert product_from_cache is not None
     assert product_from_cache.name == cached_product["name"]
 
-
 @pytest.mark.asyncio
 async def test_delete_product(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -551,7 +538,6 @@ async def test_delete_product(test_db: AsyncSession, test_cache):
 
     deleted = await test_db.get(Product, product.id)
     assert deleted is None
-
 
 @pytest.mark.asyncio
 async def test_searching_products(test_db: AsyncSession, test_cache):

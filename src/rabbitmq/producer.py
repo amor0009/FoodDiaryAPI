@@ -3,7 +3,6 @@ from .client import rabbitmq_client
 import json
 from ..logging_config import logger
 
-
 async def publish_message(message_data: dict, queue_name: str):
     if not rabbitmq_client.channel:
         raise RuntimeError("RabbitMQ client is not connected")

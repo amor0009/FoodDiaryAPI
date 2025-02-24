@@ -6,7 +6,6 @@ from src.services.user_service import delete_user, update_user, find_user_by_log
     calculate_recommended_nutrients
 from src.cache.cache import cache
 
-
 @pytest.mark.asyncio
 async def test_delete_user(test_db: AsyncSession):
     user = User(
@@ -23,7 +22,6 @@ async def test_delete_user(test_db: AsyncSession):
 
     deleted_user = await test_db.get(User, user.id)
     assert deleted_user is None
-
 
 @pytest.mark.asyncio
 async def test_update_user(test_cache, test_db: AsyncSession):
@@ -49,7 +47,6 @@ async def test_update_user(test_cache, test_db: AsyncSession):
 
     assert updated_user.firstname == "new_test_name"
     assert updated_user.weight == 75
-
 
 @pytest.mark.asyncio
 async def test_find_user_with_login_and_email(test_db: AsyncSession, test_cache):
@@ -80,7 +77,6 @@ async def test_find_user_with_login_and_email(test_db: AsyncSession, test_cache)
     assert user_from_cache is not None
     assert user_from_cache.login == "testuser1"
     assert user_from_cache.email == "test1@example.com"
-
 
 @pytest.mark.asyncio
 async def test_calculate_recommended_nutrients(test_cache):

@@ -2,7 +2,6 @@ import aio_pika
 from src.core.config import RABBITMQ_HOST, RABBITMQ_PORT
 from src.logging_config import logger
 
-
 class RabbitMQClient:
     def __init__(self):
         self.connection = None

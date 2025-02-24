@@ -5,7 +5,6 @@ from src.cache.cache import cache
 from src.schemas.user import UserCreate
 from src.services.auth_service import authenticate_user, create_user
 
-
 @pytest.mark.asyncio
 async def test_auth_service(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -30,7 +29,6 @@ async def test_auth_service(test_db: AsyncSession, test_cache):
     user_from_cache = await authenticate_user(test_db, test_user.login, "testpassword")
     assert user_from_cache is not None
     assert user_from_cache.login == test_user.login
-
 
 @pytest.mark.asyncio
 async def test_create_user_service(test_db: AsyncSession, test_rabbitmq):

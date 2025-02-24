@@ -9,7 +9,6 @@ from src.models.meal_products import MealProducts
 from src.rabbitmq.client import rabbitmq_client
 from src.rabbitmq.consumer import consume_messages
 
-
 @celery.task(name="start_rabbitmq_consumer")
 def start_rabbitmq_consumer(queue_name="registration_queue"):
     async def main():

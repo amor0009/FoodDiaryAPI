@@ -9,7 +9,6 @@ from src.services.meal_products_service import get_meal_products, add_meal_produ
     delete_meal_product
 from src.cache.cache import cache
 
-
 @pytest.mark.asyncio
 async def test_get_meal_products(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -81,7 +80,6 @@ async def test_get_meal_products(test_db: AsyncSession, test_cache):
     assert meal_products_from_cache[0].meal_id == cached_meal_products[0]["meal_id"]
     assert meal_products_from_cache[0].product_weight == cached_meal_products[0]["product_weight"]
 
-
 @pytest.mark.asyncio
 async def test_add_meal_product(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -130,7 +128,6 @@ async def test_add_meal_product(test_db: AsyncSession, test_cache):
     assert meal_products.product_id == meal_products_create.product_id
     assert meal_products.meal_id == meal.id
     assert meal_products.product_weight == meal_products_create.product_weight
-
 
 @pytest.mark.asyncio
 async def test_update_meal_product(test_db: AsyncSession, test_cache):
@@ -190,7 +187,6 @@ async def test_update_meal_product(test_db: AsyncSession, test_cache):
     assert meal_products.product_id == meal_products_update.product_id
     assert meal_products.meal_id == meal.id
     assert meal_products.product_weight == meal_products_update.product_weight
-
 
 @pytest.mark.asyncio
 async def test_delete_meal_product(test_db: AsyncSession, test_cache):

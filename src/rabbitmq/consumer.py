@@ -4,7 +4,6 @@ from .client import rabbitmq_client
 from src.services.email_service import send_email
 from ..logging_config import logger
 
-
 async def process_message(message: IncomingMessage):
     try:
         print(f"Received message: {message.body.decode()}")
@@ -25,7 +24,6 @@ async def process_message(message: IncomingMessage):
         logger.info(f"Message: {message.body.decode()} - is acknowledged and removed from the queue")
     except Exception as e:
         print(f"Error processing message: {e}")
-
 
 async def consume_messages(queue_name: str = "registration_queue"):
     if not rabbitmq_client.channel:

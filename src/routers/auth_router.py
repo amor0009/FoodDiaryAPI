@@ -36,7 +36,6 @@ async def login_with_google():
     logger.info(f"Redirection to a authorization URL: {auth_url}")
     return RedirectResponse(auth_url)
 
-
 # Колбэк после авторизации
 @auth_router.get('/google/callback')
 async def google_callback(request: Request, db: AsyncSession = Depends(get_async_session)):
@@ -79,7 +78,6 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_async
     logger.info(f"JWT токен создан для пользователя: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
-
 # Функция обмена авторизационного кода на access token
 async def exchange_code_for_token(code: str):
     data = {
@@ -96,7 +94,6 @@ async def exchange_code_for_token(code: str):
             raise HTTPException(status_code=400, detail="Failed to exchange code for token")
         return response.json()
 
-
 # Функция получения данных пользователя из Google API
 async def get_google_user_info(access_token: str):
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -105,7 +102,6 @@ async def get_google_user_info(access_token: str):
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail="Failed to fetch user info")
         return response.json()
-
 
 # Регистрация нового пользователя
 @auth_router.post("/registration")
@@ -117,7 +113,6 @@ async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_se
     await consume_messages("registration_queue")
     logger.info(f"Пользователь {user.email} успешно зарегистрирован")
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 # Авторизация по email и паролю
 @auth_router.post("/login")
@@ -132,7 +127,6 @@ async def login(email_login: str, password: str, db: AsyncSession = Depends(get_
     access_token = create_access_token(data={"sub": email_login})
     logger.info(f"Пользователь {email_login} успешно авторизован:{user}")
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 # Валидация токена
 @auth_router.post("/validate-token")

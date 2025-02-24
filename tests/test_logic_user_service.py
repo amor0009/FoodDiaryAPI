@@ -1,13 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-
 from fastapi import HTTPException
-
 from src.models.user import User
 from src.schemas.user import UserRead, UserUpdate
 from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_service import find_user_by_login_and_email, delete_user, update_user
-
 
 @pytest.mark.asyncio
 async def test_find_user_by_login_and_email_cache_hit():
@@ -28,7 +25,6 @@ async def test_find_user_by_login_and_email_cache_hit():
         assert user == expected_user
         mock_cache.get.assert_called_once_with(f"user:{email_login}")
         mock_db.execute.assert_not_called()  # База данных не должна вызываться
-
 
 @pytest.mark.asyncio
 async def test_find_user_by_login_and_email_cache_miss():
@@ -62,7 +58,6 @@ async def test_find_user_by_login_and_email_cache_miss():
             expire=3600,
         )
 
-
 @pytest.mark.asyncio
 async def test_delete_user():
     # Создаем моки
@@ -90,7 +85,6 @@ async def test_delete_user():
 
         # Проверяем, что возвращается сам пользователь
         assert deleted_user == expected_user
-
 
 @pytest.mark.asyncio
 async def test_update_user():

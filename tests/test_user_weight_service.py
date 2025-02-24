@@ -7,7 +7,6 @@ from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import get_current_weight, get_weights, save_or_update_weight
 from src.cache.cache import cache
 
-
 @pytest.mark.asyncio
 async def test_get_current_weight(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -46,7 +45,6 @@ async def test_get_current_weight(test_db: AsyncSession, test_cache):
     assert user_weight_from_cache is not None
     assert user_weight_from_cache.weight == cached_user_weight["weight"]
 
-
 @pytest.mark.asyncio
 async def test_get_weights(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -84,7 +82,6 @@ async def test_get_weights(test_db: AsyncSession, test_cache):
     user_weights_from_cache = await get_weights(test_cache, test_user.id)
     assert user_weights_from_cache is not None
     assert user_weights_from_cache[0].weight == cached_user_weights[0]["weight"]
-
 
 @pytest.mark.asyncio
 async def test_save_or_update_weight(test_db: AsyncSession, test_cache):

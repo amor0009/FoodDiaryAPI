@@ -10,10 +10,8 @@ from src.database.database import get_async_session
 from src.logging_config import logger
 from src.services.user_service import find_user_by_login_and_email
 
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_async_session)):
     credentials_exception = HTTPException(
@@ -38,16 +36,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         raise credentials_exception
     return user
 
-
 def verify_password(plain_password, hashed_password):
     if pwd_context.verify(plain_password, hashed_password):
         return True
     return False
 
-
 def get_password_hash(password):
     return pwd_context.hash(password)
-
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()

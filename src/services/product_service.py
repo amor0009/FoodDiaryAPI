@@ -1,6 +1,4 @@
-import json
 from fastapi import HTTPException, status
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.meal import Meal
@@ -9,7 +7,6 @@ from src.models.product import Product
 from src.schemas.meal import MealRead
 from src.schemas.product import ProductCreate, ProductUpdate, ProductAdd, ProductRead
 from src.cache.cache import cache
-
 
 async def recalculate_product_nutrients(db_product: Product, product_weight: float) -> ProductRead:
     """Пересчитывает характеристики продукта по заданному весу."""
@@ -26,7 +23,6 @@ async def recalculate_product_nutrients(db_product: Product, product_weight: flo
         picture_path=db_product.picture_path
     )
 
-
 async def get_products(db: AsyncSession, user_id: int):
     cache_key = f"products:{user_id}"
     cached_products = await cache.get(cache_key)
@@ -41,7 +37,6 @@ async def get_products(db: AsyncSession, user_id: int):
     products_list = [ProductRead.model_validate(product) for product in products]
     await cache.set(cache_key, [product.model_dump(mode="json") for product in products_list], expire=3600)
     return products_list
-
 
 async def add_product(db: AsyncSession, product: ProductCreate, user_id: int):
     db_product = await get_product_by_exact_name(db, product.name, user_id)
@@ -68,7 +63,6 @@ async def add_product(db: AsyncSession, product: ProductCreate, user_id: int):
     await cache.delete(cache_key)
     return ProductRead.model_validate(new_product)
 
-
 async def change_product_info_for_weight(db: AsyncSession, product: ProductAdd, user_id: int):
     db_product = await get_product_by_exact_name(db, product.name, user_id)
     if not db_product:
@@ -89,7 +83,6 @@ async def change_product_info_for_weight(db: AsyncSession, product: ProductAdd, 
         user_id=user_id
     )
     return ProductRead.model_validate(changed_product)
-
 
 async def add_product_to_meal(db:AsyncSession, meal_id: int, product: ProductAdd, user_id: int):
     query = select(Meal).where(Meal.id == meal_id)
@@ -118,7 +111,6 @@ async def add_product_to_meal(db:AsyncSession, meal_id: int, product: ProductAdd
     await db.refresh(meal)
     return MealRead.model_validate(meal)
 
-
 async def get_available_products(db: AsyncSession, user_id: int):
     cache_key = f"products:{user_id}"
     cached_data = await cache.get(cache_key)
@@ -131,7 +123,6 @@ async def get_available_products(db: AsyncSession, user_id: int):
     products_list = [ProductRead.model_validate(product) for product in products]
     await cache.set(cache_key, [product.model_dump(mode="json") for product in products_list], expire=3600)
     return products_list
-
 
 async def get_products_by_name(db: AsyncSession, product_name: str, user_id: int):
     cache_key = f"products:{user_id}:{product_name}"
@@ -146,7 +137,6 @@ async def get_products_by_name(db: AsyncSession, product_name: str, user_id: int
     products_list = [ProductRead.model_validate(product) for product in products]
     await cache.set(cache_key, [product.model_dump(mode="json") for product in products_list], expire=3600)
     return products_list
-
 
 async def get_product_by_exact_name(db: AsyncSession, product_name: str, user_id: int):
     cache_key = f"product:{user_id}:{product_name}"
@@ -163,7 +153,6 @@ async def get_product_by_exact_name(db: AsyncSession, product_name: str, user_id
         await cache.set(cache_key, product_pydantic.model_dump(mode="json"), expire=3600)
         return product_pydantic
     return None
-
 
 async def get_product_by_id(db: AsyncSession, product_id: int, user_id: int):
     cache_key = f"products:{user_id}:{product_id}"
@@ -183,7 +172,6 @@ async def get_product_by_id(db: AsyncSession, product_id: int, user_id: int):
         return product_pydantic
     return None
 
-
 async def get_product_available_to_change_by_id(db: AsyncSession, product_id: int, user_id: int):
     cache_key = f"personal_product:{user_id}:{product_id}"
     cached_data = await cache.get(cache_key)
@@ -202,7 +190,6 @@ async def get_product_available_to_change_by_id(db: AsyncSession, product_id: in
         return product
     return None
 
-
 async def get_product_available_to_change_by_name(db: AsyncSession, product_name: str, user_id: int):
     cache_key = f"personal_product:{user_id}:{product_name}"
     cached_data = await cache.get(cache_key)
@@ -218,7 +205,6 @@ async def get_product_available_to_change_by_name(db: AsyncSession, product_name
     product_pydantic = ProductRead.model_validate(product)
     await cache.set(cache_key, product_pydantic.model_dump(mode="json"), expire=3600)
     return product_pydantic
-
 
 async def update_product(db: AsyncSession, product_update: ProductUpdate, user_id: int):
     db_product = await get_product_available_to_change_by_id(db, product_update.id, user_id)
@@ -253,7 +239,6 @@ async def update_product(db: AsyncSession, product_update: ProductUpdate, user_i
     await cache.delete(f"products:{user_id}:{db_product.name}")
     return ProductRead.model_validate(db_product)
 
-
 async def searching_products(db: AsyncSession, user_id: int, query: str):
     if not query:
         return await get_products(db, user_id)
@@ -266,7 +251,6 @@ async def searching_products(db: AsyncSession, user_id: int, query: str):
     result = await db.execute(query)
     products = result.scalars().all()
     return [ProductRead.model_validate(product) for product in products]
-
 
 async def delete_product(db: AsyncSession, user_id: int, product_id: int):
     product = await get_product_available_to_change_by_id(db, product_id, user_id)

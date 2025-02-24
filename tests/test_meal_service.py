@@ -12,7 +12,6 @@ from src.services.meal_service import add_meal, get_user_meals, get_user_meals_w
     recalculate_meal_nutrients, get_meal_by_id, get_meals_by_date, get_meals_last_7_days, update_meal, delete_meal
 from src.cache.cache import cache
 
-
 @pytest.mark.asyncio
 async def test_recalculate_meal_nutrients():
     # Продукты, которые входят в прием пищи
@@ -62,7 +61,6 @@ async def test_recalculate_meal_nutrients():
         ]
     )
 
-
 @pytest.mark.asyncio
 async def test_recalculate_meal_nutrients_empty_meal():
     # Пустой прием пищи (без продуктов)
@@ -90,7 +88,6 @@ async def test_recalculate_meal_nutrients_empty_meal():
         user_id=1,
         products=[]
     )
-
 
 @pytest.mark.asyncio
 async def test_add_meal(test_db: AsyncSession, test_cache):
@@ -146,7 +143,6 @@ async def test_add_meal(test_db: AsyncSession, test_cache):
     assert len(created_meal.products) == 2
     assert created_meal.name == meal.name
     assert created_meal.products[0].weight == meal.products[0].product_weight
-
 
 @pytest.mark.asyncio
 async def test_get_user_meals(test_db: AsyncSession, test_cache):
@@ -209,7 +205,6 @@ async def test_get_user_meals(test_db: AsyncSession, test_cache):
     assert meals_from_cache[1].name == cached_meals[1]["name"]
     assert meals_from_cache[1].user_id == cached_meals[1]["user_id"]
 
-
 @pytest.mark.asyncio
 async def test_get_user_meals_with_products_by_date(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -252,7 +247,6 @@ async def test_get_user_meals_with_products_by_date(test_db: AsyncSession, test_
     assert len(meals) == 2
     assert meals[0].name == meal1.name
 
-
 @pytest.mark.asyncio
 async def test_get_meal_by_id(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -290,7 +284,6 @@ async def test_get_meal_by_id(test_db: AsyncSession, test_cache):
     meal_from_cache = await get_meal_by_id(test_db, meal.id, test_user.id)
     assert meal_from_cache is not None
     assert meal_from_db.name == meal_from_cache.name
-
 
 @pytest.mark.asyncio
 async def test_get_meals_by_date(test_db: AsyncSession, test_cache):
@@ -352,7 +345,6 @@ async def test_get_meals_by_date(test_db: AsyncSession, test_cache):
     assert meals_from_cache[0].recorded_at == meals_from_db[0].recorded_at
     assert meals_from_cache[1].name == meals_from_db[1].name
     assert meals_from_cache[1].recorded_at == meals_from_db[1].recorded_at
-
 
 @pytest.mark.asyncio
 async def test_get_meals_last_7_days(test_db: AsyncSession, test_cache):
@@ -417,7 +409,6 @@ async def test_get_meals_last_7_days(test_db: AsyncSession, test_cache):
     assert meals_from_cache[1].name == meals_from_db[1].name
     assert meals_from_cache[1].recorded_at == meals_from_db[1].recorded_at
 
-
 @pytest.mark.asyncio
 async def test_update_meal(test_db: AsyncSession, test_cache):
     test_user = User(
@@ -476,7 +467,6 @@ async def test_update_meal(test_db: AsyncSession, test_cache):
     assert updated_meal.fats == 0.05
     assert updated_meal.carbohydrates == 5.0
     assert updated_meal.user_id == test_user.id
-
 
 @pytest.mark.asyncio
 async def test_delete_meal(test_db: AsyncSession, test_cache):

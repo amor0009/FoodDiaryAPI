@@ -9,9 +9,7 @@ from src.services.meal_products_service import (
     delete_meal_product
 )
 
-
 meal_products_router = APIRouter()
-
 
 @meal_products_router.get("/{meal_id}")
 async def get_all_meal_products(
@@ -20,7 +18,6 @@ async def get_all_meal_products(
 ):
     return await get_meal_products(db, meal_id)
 
-
 @meal_products_router.post("/{meal_id}")
 async def add_meal_product(
     meal_id: int,
@@ -28,7 +25,6 @@ async def add_meal_product(
     db: AsyncSession = Depends(get_async_session),
 ):
     return await add_meal_product(db, meal_id, data)
-
 
 @meal_products_router.put("/{meal_id}")
 async def update(
@@ -40,7 +36,6 @@ async def update(
     if not updated:
         raise HTTPException(status_code=404, detail="Meal product not found")
     return updated
-
 
 @meal_products_router.delete("/{meal_id}/{product_id}")
 async def delete(

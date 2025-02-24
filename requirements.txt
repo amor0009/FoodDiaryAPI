@@ -3,6 +3,14 @@ sqlalchemy
 uvicorn
 psycopg2-binary
 alembic
-dotenv
+python-dotenv
 passlib
 redis
+httpx
+jwt
+PyJWT==1.7.1
+asyncpg
+greenlet
+aio-pika
+aiosmtplib
+jinja2

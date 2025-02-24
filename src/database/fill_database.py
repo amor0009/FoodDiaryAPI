@@ -2,7 +2,6 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.product import Product
 
-
 async def load_products_from_json(db: AsyncSession, file_path: str):
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -34,7 +33,6 @@ async def load_products_from_json(db: AsyncSession, file_path: str):
     except Exception as e:
         await db.rollback()
         print(f"Error committing to database: {e}")
-
 
 async def fill_database(db: AsyncSession, file_path: str):
     await load_products_from_json(db, file_path)

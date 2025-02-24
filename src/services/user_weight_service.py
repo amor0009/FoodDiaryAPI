@@ -7,7 +7,6 @@ from src.logging_config import logger
 from src.models.user_weight import UserWeight
 from src.schemas.user_weight import UserWeightUpdate, UserWeightRead
 
-
 async def save_or_update_weight(user_weight: UserWeightUpdate, db: AsyncSession, user_id: int):
     cache_key = f"user_weight:{user_id}:{date.today()}"
     try:
@@ -42,7 +41,6 @@ async def save_or_update_weight(user_weight: UserWeightUpdate, db: AsyncSession,
         logger.error(f"Error saving or updating weight for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
 async def get_current_weight(current_date: str, db: AsyncSession, user_id: int):
     cache_key = f"user_weight:{user_id}:{current_date}"
     try:
@@ -71,7 +69,6 @@ async def get_current_weight(current_date: str, db: AsyncSession, user_id: int):
     except Exception as e:
         logger.error(f"Error retrieving current weight for user {user_id} on {current_date}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 async def get_weights(db: AsyncSession, user_id: int):
     cache_key = f"user_weights:{user_id}:last_30_days"

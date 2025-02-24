@@ -1,7 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel
 
-
 class ProductRead(BaseModel):
     id: int
     name: str

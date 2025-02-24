@@ -8,7 +8,6 @@ from src.logging_config import logger
 from src.models.meal_products import MealProducts
 from src.schemas.meal_products import MealProductsCreate, MealProductsUpdate, MealProductsRead
 
-
 # Получение продуктов для блюда
 async def get_meal_products(db: AsyncSession, meal_id: int):
     cache_key = f"meal_products:{meal_id}"
@@ -36,7 +35,6 @@ async def get_meal_products(db: AsyncSession, meal_id: int):
     except Exception as e:
         logger.error(f"Error fetching meal products for meal {meal_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 # Добавление продукта в блюдо
 async def add_meal_product(db: AsyncSession, meal_id: int, data: MealProductsCreate) -> MealProductsRead:
@@ -74,7 +72,6 @@ async def add_meal_product(db: AsyncSession, meal_id: int, data: MealProductsCre
         logger.error(f"Error adding product to meal {meal_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
 # Обновление продукта в блюде
 async def update_meal_product(db: AsyncSession, meal_id: int, data: MealProductsUpdate):
     try:
@@ -102,7 +99,6 @@ async def update_meal_product(db: AsyncSession, meal_id: int, data: MealProducts
     except Exception as e:
         logger.error(f"Error updating meal product for meal_id {meal_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 # Удаление продукта из блюда
 async def delete_meal_product(db: AsyncSession, meal_id: int, product_id: int):

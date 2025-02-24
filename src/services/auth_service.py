@@ -9,7 +9,6 @@ from src.rabbitmq.producer import publish_message
 from src.schemas.user import *
 from src.services.user_service import find_user_by_login_and_email
 
-
 # Аутентификация пользователя
 async def authenticate_user(db: AsyncSession, email_login: str, password: str):
     cache_key = f"user_auth:{email_login}"
@@ -34,24 +33,15 @@ async def authenticate_user(db: AsyncSession, email_login: str, password: str):
         logger.error(f"Error authenticating user {email_login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-
 # Создание нового пользователя
 async def create_user(db: AsyncSession, user: UserCreate):
     try:
-        # Проверяем существование пользователя по логину
-        existing_login_user = await find_user_by_login_and_email(db, user.login)
-        if existing_login_user:
+        # Проверяем, существует ли пользователь с таким логином или email
+        existing_user = await find_user_by_login_and_email(db, user.email, user.login)
+        if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User with login '{user.login}' already exists."
-            )
-
-        # Проверяем существование пользователя по email
-        existing_email_user = await find_user_by_login_and_email(db, user.email)
-        if existing_email_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User with email '{user.email}' already exists."
+                detail="User with this email or login already exists."
             )
 
         # Хэшируем пароль и создаем пользователя
@@ -73,11 +63,14 @@ async def create_user(db: AsyncSession, user: UserCreate):
         await publish_message(message_data, "registration_queue")
 
         logger.info(f"User created successfully: {new_user.login}")
-        return UserRead.model_validate(new_user)
+        return new_user
+    except HTTPException as http_exc:
+        await db.rollback()  # Откатываем транзакцию, если возникла ошибка с пользователем
+        raise http_exc
     except Exception as e:
+        await db.rollback()  # Откатываем транзакцию при любой другой ошибке
         logger.error(f"Error creating user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 # Проверка токена
 async def validate_token_logic(user):

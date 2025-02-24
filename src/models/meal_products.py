@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, ForeignKey, Double
 from sqlalchemy.orm import relationship
 from src.database.database import Base
 
-
 class MealProducts(Base):
     __tablename__ = "meal_products"
 
