@@ -10,32 +10,34 @@ from src.services.user_service import find_user_by_login_and_email, delete_user,
 async def test_find_user_by_login_and_email_cache_hit():
     mock_cache = AsyncMock()
     mock_db = AsyncMock()
-    email_login = "test_user"
+    login = "test_user"
+    email = None
 
     # Данные, которые вернутся из кэша
-    cached_user = {"id": 1, "login": email_login, "email": "test@example.com"}
+    cached_user = {"id": 1, "login": login, "email": "test@example.com"}
     mock_cache.get.return_value = cached_user
 
     with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email_login)
+        user = await find_user_by_login_and_email(mock_db, email, login)
 
         expected_user = UserRead.model_validate(cached_user)
 
         # Проверяем, что данные из кэша возвращаются корректно
         assert user == expected_user
-        mock_cache.get.assert_called_once_with(f"user:{email_login}")
+        mock_cache.get.assert_called_once_with(f"user:{email}:{login}")
         mock_db.execute.assert_not_called()  # База данных не должна вызываться
 
 @pytest.mark.asyncio
 async def test_find_user_by_login_and_email_cache_miss():
     mock_cache = AsyncMock()
     mock_db = AsyncMock()
-    email_login = "test_user"
+    login = "test_user"
+    email = None
 
     mock_cache.get.return_value = None  # Нет данных в кэше
 
     # Пользователь из БД
-    user_from_db = User(id=1, login=email_login, email="test@example.com")
+    user_from_db = User(id=1, login=login, email="test@example.com")
 
     # Правильный мок SQLAlchemy execute() -> scalar_one_or_none()
     mock_result = AsyncMock()
@@ -44,16 +46,16 @@ async def test_find_user_by_login_and_email_cache_miss():
     mock_db.execute.return_value = mock_result  # execute() вернёт mock_result
 
     with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email_login)
+        user = await find_user_by_login_and_email(mock_db, email, login)
 
         assert user.id == user_from_db.id
         assert user.login == user_from_db.login
         assert user.email == user_from_db.email
 
-        mock_cache.get.assert_called_once_with(f"user:{email_login}")
+        mock_cache.get.assert_called_once_with(f"user:{email}:{login}")
 
         mock_cache.set.assert_called_once_with(
-            f"user:{email_login}",
+            f"user:{email}:{login}",
             UserRead.model_validate(user_from_db).model_dump(mode="json"),
             expire=3600,
         )

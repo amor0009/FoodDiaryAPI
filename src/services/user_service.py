@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.cache.cache import cache
 from src.logging_config import logger
 from src.models.user import User
-from src.schemas.user import UserUpdate, UserRead
+from src.schemas.user import UserUpdate, UserRead, UserCalculateNutrients
 from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import save_or_update_weight
 
@@ -94,6 +94,12 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
             )
             await save_or_update_weight(user_weight, db, current_user.id)
 
+        if all([user.weight, user.height, user.age, user.gender, user.aim, user.activity_level]):
+            result = await calculate_recommended_nutrients(UserCalculateNutrients.model_validate(user))
+            user_update.recommended_calories = result["calories"]
+
+        logger.warning(f"Недостаточно данных для расчета нутриентов у пользователя {user.id}")
+
         await db.commit()
         await db.refresh(user)
 
@@ -105,18 +111,19 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
         logger.error(f"Error updating user {current_user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def calculate_recommended_nutrients(user: UserRead):
+async def calculate_recommended_nutrients(user: UserCalculateNutrients):
     """
     Рассчитывает рекомендуемое количество калорий, белков, жиров и углеводов в день
     на основе пола, роста, возраста, веса, цели и уровня активности пользователя.
     """
-    cache_key = f"user_nutrients:{user.id}"
+    if user.id is not None:
+        cache_key = f"user_nutrients:{user.id}"
 
-    # Проверяем кэш
-    cached_data = await cache.get(cache_key)
-    if cached_data:
-        logger.info(f"Данные о нутриентах загружены из кэша для пользователя {user.id}")
-        return cached_data
+        # Проверяем кэш
+        cached_data = await cache.get(cache_key)
+        if cached_data:
+            logger.info(f"Данные о нутриентах загружены из кэша для пользователя {user.id}")
+            return cached_data
 
     logger.info(f"Расчет нутриентов для пользователя {user.id}")
 
@@ -181,9 +188,9 @@ async def calculate_recommended_nutrients(user: UserRead):
         "fat": fat,
         "carbohydrates": carbs
     }
-
-    # Запись в кэш на 24 часа
-    await cache.set(cache_key, result, expire=86400)
-    logger.info(f"Данные о нутриентах закэшированы для пользователя {user.id}")
+    if user.id is not None:
+        # Запись в кэш на 24 часа
+        await cache.set(cache_key, result, expire=86400)
+        logger.info(f"Данные о нутриентах закэшированы для пользователя {user.id}")
 
     return result
