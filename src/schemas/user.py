@@ -1,5 +1,6 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
 
 class UserRead(BaseModel):
     id: int
@@ -14,7 +15,11 @@ class UserRead(BaseModel):
     activity_level: Optional[str] = None
     aim: Optional[str] = None
     recommended_calories: Optional[float] = None
-    profile_image: Optional[str] = None
+    has_profile_picture: Optional[bool] = None
+
+    @computed_field
+    def profile_picture(self) -> Optional[str]:
+        return f"/user/profile-picture/{self.id}" if self.has_profile_picture else None
 
     class Config:
         from_attributes = True
@@ -32,7 +37,6 @@ class UserCalculateNutrients(BaseModel):
     activity_level: Optional[str] = None
     aim: Optional[str] = None
     recommended_calories: Optional[float] = None
-    profile_image: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -50,8 +54,6 @@ class UserUpdate(BaseModel):
     activity_level: Optional[str] = None
     aim: Optional[str] = None
     recommended_calories: Optional[float] = None
-    profile_image: Optional[str] = None
-
 
 class UserCreate(BaseModel):
     login: str

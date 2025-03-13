@@ -13,8 +13,10 @@ from src.routers.meal_router import meal_router
 from src.routers.product_router import product_router
 from src.routers.auth_router import auth_router
 from src.routers.user_router import user_router
+from src.routers.profile_picture_router import photo_router
 from src.routers.user_weight_router import user_weight_router
 from .logging_config import logger, LogRequestMiddleware
+
 
 app = FastAPI(
     title="Food Diary",
@@ -52,6 +54,7 @@ async def shutdown():
     await rabbitmq_client.close()
     await cache.disconnect()
 
+app.include_router(photo_router, prefix="/photo")
 app.include_router(meal_products_router, prefix="/meal_products")
 app.include_router(user_weight_router, prefix="/user_weight")
 app.include_router(database_router, prefix="/database")

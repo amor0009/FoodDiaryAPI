@@ -18,13 +18,13 @@ async def test_find_user_by_login_and_email_cache_hit():
     mock_cache.get.return_value = cached_user
 
     with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email, login)
+        user = await find_user_by_login_and_email(mock_db, login)
 
         expected_user = UserRead.model_validate(cached_user)
 
         # Проверяем, что данные из кэша возвращаются корректно
         assert user == expected_user
-        mock_cache.get.assert_called_once_with(f"user:{email}:{login}")
+        mock_cache.get.assert_called_once_with(f"user:{login}")
         mock_db.execute.assert_not_called()  # База данных не должна вызываться
 
 @pytest.mark.asyncio
@@ -46,16 +46,16 @@ async def test_find_user_by_login_and_email_cache_miss():
     mock_db.execute.return_value = mock_result  # execute() вернёт mock_result
 
     with patch("src.services.user_service.cache", mock_cache):
-        user = await find_user_by_login_and_email(mock_db, email, login)
+        user = await find_user_by_login_and_email(mock_db, login)
 
         assert user.id == user_from_db.id
         assert user.login == user_from_db.login
         assert user.email == user_from_db.email
 
-        mock_cache.get.assert_called_once_with(f"user:{email}:{login}")
+        mock_cache.get.assert_called_once_with(f"user:{login}")
 
         mock_cache.set.assert_called_once_with(
-            f"user:{email}:{login}",
+            f"user:{login}",
             UserRead.model_validate(user_from_db).model_dump(mode="json"),
             expire=3600,
         )
@@ -108,7 +108,6 @@ async def test_update_user():
         gender="male",
         aim="maintain",
         recommended_calories=2500,
-        profile_image="old_image.jpg"
     )
 
     # Данные для обновления
@@ -121,7 +120,6 @@ async def test_update_user():
         gender="female",
         aim="lose",
         recommended_calories=2300,
-        profile_image="new_image.jpg"
     )
 
     # Мокируем запрос и результат
@@ -152,7 +150,6 @@ async def test_update_user():
             assert updated_user.gender == "female"
             assert updated_user.aim == "lose"
             assert updated_user.recommended_calories == 2300
-            assert updated_user.profile_image == "new_image.jpg"
 
             # Проверяем, что был вызван commit
             mock_db.commit.assert_called_once()

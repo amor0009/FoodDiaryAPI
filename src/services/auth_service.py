@@ -37,11 +37,18 @@ async def authenticate_user(db: AsyncSession, email_login: str, password: str):
 async def create_user(db: AsyncSession, user: UserCreate):
     try:
         # Проверяем, существует ли пользователь с таким логином или email
-        existing_user = await find_user_by_login_and_email(db, user.email, user.login)
+        existing_user = await find_user_by_login_and_email(db, user.email)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User with this email or login already exists."
+                detail="User with this email already exists."
+            )
+
+        existing_user = await find_user_by_login_and_email(db, user.login)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this login already exists."
             )
 
         # Хэшируем пароль и создаем пользователя

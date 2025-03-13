@@ -60,19 +60,20 @@ async def test_find_user_with_login_and_email(test_db: AsyncSession, test_cache)
     await test_db.commit()
     await test_db.refresh(test_user)
 
-    await cache.delete(f"user:{test_user.email}:{test_user.login}")
+    await cache.delete(f"user:{test_user.login}")
+    await cache.delete(f"user:{test_user.email}")
 
-    user_from_db = await find_user_by_login_and_email(test_db, "test1@example.com", "testuser1")
+    user_from_db = await find_user_by_login_and_email(test_db, "test1@example.com")
     assert user_from_db is not None
     assert user_from_db.email == "test1@example.com"
     assert user_from_db.login == "testuser1"
 
-    cached_user = await cache.get(f"user:{test_user.email}:{test_user.login}")
+    cached_user = await cache.get(f"user:{test_user.email}")
     assert cached_user is not None
     assert cached_user["login"] == "testuser1"
     assert cached_user["email"] == "test1@example.com"
 
-    user_from_cache = await find_user_by_login_and_email(test_db, "test1@example.com", "testuser1")
+    user_from_cache = await find_user_by_login_and_email(test_db, "test1@example.com")
     assert user_from_cache is not None
     assert user_from_cache.login == "testuser1"
     assert user_from_cache.email == "test1@example.com"

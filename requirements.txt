@@ -14,3 +14,4 @@ greenlet
 aio-pika
 aiosmtplib
 jinja2
+python-multipart
