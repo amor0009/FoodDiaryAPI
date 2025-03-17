@@ -105,20 +105,8 @@ async def test_calculate_recommended_nutrients_for_auth_user(test_cache):
     assert result["carbohydrates"] == 383.33
 
     cached_result = await cache.get(f"user_nutrients:{user.id}")
-    assert cached_result is not None
-    assert len(cached_result) == 4
-    assert cached_result["calories"] == 3066.67
-    assert cached_result["fat"] == 85.19
-    assert cached_result["protein"] == 191.67
-    assert cached_result["carbohydrates"] == 383.33
+    assert cached_result is None
 
-    result_from_cache = await calculate_recommended_nutrients(user)
-    assert result_from_cache is not None
-    assert len(result_from_cache) == 4
-    assert result_from_cache["calories"] == result["calories"]
-    assert result_from_cache["fat"] == result["fat"]
-    assert result_from_cache["protein"] == result["protein"]
-    assert result_from_cache["carbohydrates"] == result["carbohydrates"]
 
 @pytest.mark.asyncio
 async def test_calculate_recommended_nutrients_for_no_auth_user(test_cache):
