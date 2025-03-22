@@ -5,9 +5,9 @@ from src.models.product import Product
 from src.models.user import User
 from src.schemas.product import ProductCreate, ProductAdd, ProductUpdate, ProductRead
 from src.services.product_service import get_products, add_product, change_product_info_for_weight, add_product_to_meal, \
-    get_available_products, get_products_by_name, get_product_by_id, update_product, get_product_by_exact_name, \
+    get_products_by_name, get_product_by_id, update_product, get_product_by_exact_name, \
     get_product_available_to_change_by_id, get_product_available_to_change_by_name, delete_product, searching_products, \
-    recalculate_product_nutrients
+    recalculate_product_nutrients, get_personal_products
 from src.cache.cache import cache
 
 @pytest.mark.asyncio
@@ -22,7 +22,7 @@ async def test_recalculate_product_nutrients():
         fats=5,             # 5 г жиров на 100 г
         carbohydrates=30,   # 30 г углеводов на 100 г
         description="Test description",
-        picture_path="/images/test.png"
+        picture=b"/images/test.png"
     )
 
     # Тестируем пересчет для 50 г продукта
@@ -190,7 +190,7 @@ async def test_add_product_to_meal(test_db: AsyncSession, test_cache):
     assert updated_meal.calories == 82.5
 
 @pytest.mark.asyncio
-async def test_get_available_products(test_db: AsyncSession, test_cache):
+async def test_get_personal_products(test_db: AsyncSession, test_cache):
     test_user = User(
         login="testuser9",
         email="test9@example.com",
@@ -239,23 +239,20 @@ async def test_get_available_products(test_db: AsyncSession, test_cache):
     test_db.add_all([public_product, private_product, other_user_product])
     await test_db.commit()
 
-    await cache.delete(f"products:{test_user.id}")
-    products = await get_available_products(test_db, test_user.id)
+    await cache.delete(f"personal_products:{test_user.id}")
+    products = await get_personal_products(test_db, test_user.id)
     assert products is not None
-    assert len(products) == 2
-    assert products[0].name == "Orange"
-    assert products[1].name == "Milk"
+    assert len(products) == 1
+    assert products[0].name == "Milk"
 
-    cached_products = await cache.get(f"products:{test_user.id}")
+    cached_products = await cache.get(f"personal_products:{test_user.id}")
     assert cached_products is not None
-    assert len(cached_products) == 2
-    assert cached_products[0]["name"] == "Orange"
-    assert cached_products[1]["name"] == "Milk"
+    assert len(cached_products) == 1
+    assert cached_products[0]["name"] == "Milk"
 
-    products_from_cache = await get_available_products(test_db, test_user.id)
+    products_from_cache = await get_personal_products(test_db, test_user.id)
     assert products_from_cache is not None
     assert products_from_cache[0].name == cached_products[0]["name"]
-    assert products_from_cache[1].name == cached_products[1]["name"]
 
 @pytest.mark.asyncio
 async def test_get_products_by_name(test_db: AsyncSession, test_cache):
@@ -337,13 +334,13 @@ async def test_get_product_by_exact_name(test_db: AsyncSession, test_cache):
     await test_db.commit()
     await test_db.refresh(product)
 
-    await cache.delete(f"product:{test_user.id}:{product.name}")
+    await cache.delete(f"product_exact:{test_user.id}:{product.name}")
 
     product = await get_product_by_exact_name(test_db, "Tomato3", test_user.id)
     assert product is not None
     assert product.name == product.name
 
-    cached_product = await cache.get(f"product:{test_user.id}:{product.name}")
+    cached_product = await cache.get(f"product_exact:{test_user.id}:{product.name}")
     assert cached_product is not None
     assert cached_product["name"] == product.name
 
@@ -374,13 +371,13 @@ async def test_get_product_by_id(test_db: AsyncSession, test_cache):
     await test_db.commit()
     await test_db.refresh(product)
 
-    await cache.delete(f"products:{test_user.id}:{product.id}")
+    await cache.delete(f"product:{test_user.id}:{product.id}")
 
     product_from_db = await get_product_by_id(test_db, product.id, test_user.id)
     assert product_from_db is not None
     assert product_from_db.name == product.name
 
-    cached_product = await cache.get(f"products:{test_user.id}:{product.id}")
+    cached_product = await cache.get(f"product:{test_user.id}:{product.id}")
     assert cached_product is not None
     assert cached_product["name"] == "Cheese"
 

@@ -1,73 +1,90 @@
-import logging
-from datetime import datetime
 import redis.asyncio as aioredis
 import json
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Union
 from src.core.config import REDIS_URL
-
-logger = logging.getLogger("food_diary_backend.cache")
+from src.logging_config import logger
 
 class Cache:
     def __init__(self, redis_url: str = REDIS_URL):
         self.redis_url = redis_url
         self.pool: Optional[aioredis.Redis] = None
 
-    async def connect(self):
+    # Подключение к Redis для работы с кэшем
+    async def connect(self) -> None:
         self.pool = await aioredis.from_url(self.redis_url, decode_responses=True)
         logger.info("Connected to Redis (cache)")
 
-    async def get(self, key: str):
+    # Преобразует поле 'recorded_at' в формат даты
+    def _convert_recorded_at(self, item: dict) -> dict:
+        if "recorded_at" in item:
+            item["recorded_at"] = datetime.fromisoformat(item["recorded_at"]).date()
+        return item
+
+    # Получение данных из кэша по ключу
+    async def get(self, key: str) -> Optional[Union[dict, list]]:
+        if not self.pool:
+            logger.error("Redis connection is not established")
+            return None
+
         try:
-            logger.info(f"Попытка получения данных из кэша для ключа {key}")
+            logger.info(f"Attempting to get data from cache for key {key}")
             value = await self.pool.get(key)
             if value:
-                logger.info(f"Данные успешно получены из кэша для ключа {key}: {value}")
+                logger.info(f"Data successfully retrieved from cache for key {key}")
                 data = json.loads(value)
 
-                def convert_recorded_at(item):
-                    if isinstance(item, dict) and "recorded_at" in item:
-                        item["recorded_at"] = datetime.fromisoformat(item["recorded_at"]).date()
-                    return item
-
                 if isinstance(data, list):
-                    data = [convert_recorded_at(item) for item in data]
+                    data = [self._convert_recorded_at(item) for item in data]
                 else:
-                    data = convert_recorded_at(data)
-
-                logger.info(f"{key}:{value}")
+                    data = self._convert_recorded_at(data)
 
                 return data
             else:
-                logger.warning(f"Данные не найдены в кэше для ключа {key}")
+                logger.warning(f"Data not found in cache for key {key}")
                 return None
         except Exception as e:
-            logger.error(f"Ошибка при получении данных из кэша для ключа {key}: {str(e)}")
-            raise e
+            logger.exception(f"Error while getting data from cache for key {key}")
+            raise
 
-    async def set(self, key: str, value, expire: int = 3600):
+    # Добавление данных в кэш с ключом
+    async def set(self, key: str, value: dict, expire: int = 3600) -> None:
+        if not self.pool:
+            logger.error("Redis connection is not established")
+            return
+
         try:
-            logger.info(f"Добавление данных в кэш с ключом {key}:{value}")
+            logger.info(f"Adding data to cache with key {key}")
             json_value = json.dumps(value)
             await self.pool.set(key, json_value, ex=expire)
-            logger.info(f"Данные успешно добавлены в кэш с ключом {key}:{json_value}")
+            logger.info(f"Data successfully added to cache with key {key}")
         except Exception as e:
-            logger.error(f"Ошибка при добавлении данных в кэш с ключом {key}: {str(e)}")
-            raise e
+            logger.exception(f"Error while adding data to cache with key {key}")
+            raise
 
-    async def delete(self, key: str):
-        if self.pool:
-            await self.pool.delete(key)
-            logger.info(f"Кэш удален для ключа {key}")
+    # Удаление данных из кэша по ключу
+    async def delete(self, key: str) -> None:
+        if not self.pool:
+            logger.error("Redis connection is not established")
+            return
 
-    async def flushdb(self):
-        if self.pool:
-            # Проверка и вызов асинхронной очистки
-            await self.pool.flushdb()
-            logger.info("Все данные в Redis были очищены")
+        await self.pool.delete(key)
+        logger.info(f"Cache deleted for key {key}")
 
-    async def disconnect(self):
+    # Очистка всех данных в Redis
+    async def flushdb(self) -> None:
+        if not self.pool:
+            logger.error("Redis connection is not established")
+            return
+
+        await self.pool.flushdb()
+        logger.info("All data in Redis has been flushed")
+
+    # Отключение от Redis
+    async def disconnect(self) -> None:
         if self.pool:
-            await self.pool.close()
+            await self.pool.aclose()
             logger.info("Disconnected from Redis (cache)")
+
 
 cache = Cache()

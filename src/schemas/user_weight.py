@@ -12,10 +12,8 @@ class UserWeightRead(BaseModel):
         from_attributes = True
         arbitrary_types_allowed=True
 
-
 class UserWeightUpdate(BaseModel):
     weight: Optional[float] = None
-
 
 class UserWeightCreate(BaseModel):
     weight: Optional[float] = None

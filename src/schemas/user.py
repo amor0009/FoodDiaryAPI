@@ -1,7 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, computed_field
 
-
 class UserRead(BaseModel):
     id: int
     login: str
@@ -10,7 +9,7 @@ class UserRead(BaseModel):
     lastname: Optional[str] = None
     age: Optional[int] = None
     height: Optional[int] = None
-    weight: Optional[int] = None
+    weight: Optional[float] = None
     gender: Optional[str] = None
     activity_level: Optional[str] = None
     aim: Optional[str] = None
@@ -32,7 +31,7 @@ class UserCalculateNutrients(BaseModel):
     lastname: Optional[str] = None
     age: Optional[int] = None
     height: Optional[int] = None
-    weight: Optional[int] = None
+    weight: Optional[float] = None
     gender: Optional[str] = None
     activity_level: Optional[str] = None
     aim: Optional[str] = None
@@ -49,7 +48,7 @@ class UserUpdate(BaseModel):
     lastname: Optional[str] = None
     age: Optional[int] = None
     height: Optional[int] = None
-    weight: Optional[int] = None
+    weight: Optional[float] = None
     gender: Optional[str] = None
     activity_level: Optional[str] = None
     aim: Optional[str] = None

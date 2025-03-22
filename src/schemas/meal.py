@@ -42,7 +42,6 @@ class MealUpdate(BaseModel):
     carbohydrates: float
     products: Optional[List[MealProductsUpdate]] = []
 
-
 class MealCreate(BaseModel):
     name: str
     weight: float

@@ -2,8 +2,9 @@ import json
 from aio_pika import IncomingMessage
 from .client import rabbitmq_client
 from src.services.email_service import send_email
-from ..logging_config import logger
+from src.logging_config import logger
 
+# Обрабатывает полученное сообщение из очереди RabbitMQ
 async def process_message(message: IncomingMessage):
     try:
         print(f"Received message: {message.body.decode()}")
@@ -13,6 +14,7 @@ async def process_message(message: IncomingMessage):
         user_name = data.get("login")
 
         if to_email:
+            # Отправляет email уведомление пользователю
             await send_email(
                 to_email=to_email,
                 subject="Welcome to Food Diary!",
@@ -25,6 +27,7 @@ async def process_message(message: IncomingMessage):
     except Exception as e:
         print(f"Error processing message: {e}")
 
+# Начинает потребление сообщений из указанной очереди RabbitMQ
 async def consume_messages(queue_name: str = "registration_queue"):
     if not rabbitmq_client.channel:
         raise RuntimeError("RabbitMQ client is not connected")

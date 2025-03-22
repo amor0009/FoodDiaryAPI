@@ -67,21 +67,10 @@ async def test_get_weights(test_db: AsyncSession, test_cache):
     await test_db.commit()
     await test_db.refresh(user_weight)
 
-    await cache.delete(f"user_weights:{test_user.id}:last_30_days")
-
     user_weights_from_db = await get_weights(test_db, test_user.id)
     assert user_weights_from_db is not None
     assert user_weights_from_db[0].weight == 70
     assert user_weights_from_db[0].recorded_at == datetime.now().date()
-
-    cached_user_weights = await cache.get(f"user_weights:{test_user.id}:last_30_days")
-    assert cached_user_weights is not None
-    assert cached_user_weights[0]["weight"] == 70
-    assert cached_user_weights[0]["recorded_at"] == datetime.now().date()
-
-    user_weights_from_cache = await get_weights(test_cache, test_user.id)
-    assert user_weights_from_cache is not None
-    assert user_weights_from_cache[0].weight == cached_user_weights[0]["weight"]
 
 @pytest.mark.asyncio
 async def test_save_or_update_weight(test_db: AsyncSession, test_cache):

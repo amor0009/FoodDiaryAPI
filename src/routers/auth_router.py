@@ -6,18 +6,18 @@ import httpx
 from starlette.responses import RedirectResponse
 from src.core.config import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, GOOGLE_AUTH_URL, GOOGLE_TOKEN_URL, \
     GOOGLE_USERINFO_URL
-from src.core.security import create_access_token, get_current_user
+from src.core.security import create_access_token, get_current_user, oauth2_scheme
 from src.database.database import get_async_session
 from src.logging_config import logger
 from src.models.user import User
 from src.rabbitmq.consumer import consume_messages
 from src.schemas.user import UserCreate
-from src.services.auth_service import create_user, authenticate_user, validate_token_logic
+from src.services.auth_service import create_user, authenticate_user, validate_token_logic, logout_user
 import urllib.parse
 
 auth_router = APIRouter()
 
-# Запрос для авторизации (перенаправление пользователя)
+# Эндпоинт для авторизации через Google (перенаправление пользователя)
 @auth_router.get('/google')
 async def login_with_google():
     scope = "openid email profile"
@@ -37,7 +37,7 @@ async def login_with_google():
     logger.info(f"Redirection to a authorization URL: {auth_url}")
     return RedirectResponse(auth_url)
 
-# Колбэк после авторизации
+# Колбэк после авторизации Google (получение токена и данных пользователя)
 @auth_router.get('/google/callback')
 async def google_callback(request: Request, db: AsyncSession = Depends(get_async_session)):
     # Получаем код из query параметров
@@ -73,10 +73,10 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_async
         await db.commit()
         await db.refresh(new_user)
         user = new_user
-        logger.info(f"Создан новый пользователь: {user.email}")
+        logger.info(f"Created new user: {user.email}")
 
     access_token = create_access_token({"sub": user.login})
-    logger.info(f"JWT токен создан для пользователя: {user.email}")
+    logger.info(f"JWT token created for user: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Функция обмена авторизационного кода на access token
@@ -104,7 +104,7 @@ async def get_google_user_info(access_token: str):
             raise HTTPException(status_code=400, detail="Failed to fetch user info")
         return response.json()
 
-# Регистрация нового пользователя
+# Эндпоинт для регистрации нового пользователя
 @auth_router.post("/registration")
 async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_session)):
     new_user = await create_user(db, user)
@@ -112,32 +112,37 @@ async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_se
     await db.commit()
     await db.refresh(new_user)
     await consume_messages("registration_queue")
-    logger.info(f"Пользователь {user.email} успешно зарегистрирован")
+    logger.info(f"User {user.email} successfully registered")
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Авторизация по email и паролю
+# Эндпоинт для авторизации пользователя по email и паролю
 @auth_router.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),  # <-- Заменяем на OAuth2PasswordRequestForm
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_session)
 ):
     user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
-        logger.warning(f"Неудачная попытка авторизации: {form_data.username}")
+        logger.warning(f"Failed login attempt: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Неверный логин или пароль",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = create_access_token(data={"sub": form_data.username})
-    logger.info(f"Пользователь {form_data.username} успешно авторизован")
+    logger.info(f"User {form_data.username} successfully logged in")
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Валидация токена
+# Эндпоинт для валидации токена
 @auth_router.post("/validate-token")
 async def validate_token(current_user: User = Depends(get_current_user)):
     try:
         return validate_token_logic(current_user)
     except HTTPException as e:
         raise e
+
+# Эндпоинт для выхода пользователя (аннулирования токена)
+@auth_router.post("/logout")
+async def logout(token: str = Depends(oauth2_scheme), user: User = Depends(get_current_user)):
+    return await logout_user(token)

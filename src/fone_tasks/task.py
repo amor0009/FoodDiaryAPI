@@ -21,7 +21,7 @@ def start_rabbitmq_consumer(queue_name="registration_queue"):
 
     asyncio.run(main())
 
-# Задача для удаления старых записей user_weight (старше 30 дней)
+# Задача для удаления устаревших записей user_weight (старше 30 дней)
 @celery.task
 async def delete_old_user_weights():
     thirty_days_ago = datetime.now().date() - timedelta(days=30)
@@ -30,7 +30,7 @@ async def delete_old_user_weights():
         await db.commit()
         logger.info('Deleted old user weights (last 30 days)')
 
-# Задача для удаления старых записей meal_products (старше 7 дней)
+# Задача для удаления устаревших записей meal_products (старше 7 дней)
 @celery.task
 async def delete_old_meal_products():
     seven_days_ago = datetime.now().date() - timedelta(days=7)

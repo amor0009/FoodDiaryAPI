@@ -1,5 +1,5 @@
 from datetime import date
-from sqlalchemy import Column, Integer, String, Double, Date, LargeBinary, Boolean
+from sqlalchemy import Column, Integer, String, Double, Date, LargeBinary
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, column_property
 from src.database.database import Base

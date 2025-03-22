@@ -13,32 +13,51 @@ from src.services.meal_service import add_meal, get_user_meals, get_user_meals_w
 from src.cache.cache import cache
 
 @pytest.mark.asyncio
-async def test_recalculate_meal_nutrients():
+async def test_recalculate_meal_nutrients(test_db: AsyncSession) -> None:
+    test_user = User(
+        login="testuser6",
+        email="test6@example.com",
+        hashed_password="testpassword"
+    )
+    test_db.add(test_user)
+    await test_db.commit()
+    await test_db.refresh(test_user)
+
     # Продукты, которые входят в прием пищи
     product1 = Product(
-        id=1, name="Apple", weight=100, calories=52, proteins=0.3, fats=0.2, carbohydrates=14, description="", picture_path=""
+        id=1, name="Apple", weight=100, calories=52, proteins=0.3, fats=0.2, carbohydrates=14, description="", picture=b""
     )
     product2 = Product(
-        id=2, name="Chicken Breast", weight=100, calories=165, proteins=31, fats=3.6, carbohydrates=0, description="", picture_path=""
+        id=2, name="Chicken Breast", weight=100, calories=165, proteins=31, fats=3.6, carbohydrates=0, description="", picture=b""
     )
 
     # Создаем объект приема пищи без meal_products
     meal = Meal(
         id=1,
         name="Lunch",
+        weight=0,
+        calories=0,
+        proteins=0,
+        fats=0,
+        carbohydrates=0,
         recorded_at=date(2024, 2, 6),
-        user_id=1
+        user_id=test_user.id
     )
 
     # Связь между продуктами и приемом пищи (разные веса)
-    meal_product1 = MealProducts(meal_id=meal.id, product_id=product1.id, product_weight=150, product=product1)  # 150 г яблока
-    meal_product2 = MealProducts(meal_id=meal.id, product_id=product2.id, product_weight=200, product=product2)  # 200 г куриной грудки
+    meal_product1 = MealProducts(meal_id=meal.id, product_id=product1.id, product_weight=150)  # 150 г яблока
+    meal_product2 = MealProducts(meal_id=meal.id, product_id=product2.id, product_weight=200)  # 200 г куриной грудки
 
     # Теперь добавляем meal_products в meal
     meal.meal_products = [meal_product1, meal_product2]
+    test_db.add(meal)
+    test_db.add_all([meal_product1, meal_product2])
+    test_db.add_all([product1, product2])
+    await test_db.commit()
+    await test_db.refresh(meal)
 
     # Пересчет характеристик приема пищи
-    updated_meal = await recalculate_meal_nutrients(meal)
+    updated_meal = await recalculate_meal_nutrients(test_db, meal)
 
     # Проверяем ожидаемые значения
     assert updated_meal == MealRead(
@@ -50,7 +69,7 @@ async def test_recalculate_meal_nutrients():
         fats=7.5,  # (0.2 * 1.5) + (3.6 * 2)
         carbohydrates=21.0,  # (14 * 1.5) + (0 * 2)
         recorded_at=date(2024, 2, 6),
-        user_id=1,
+        user_id=test_user.id,
         products=[
             ProductRead(
                 id=1, name="Apple", weight=150, calories=78.0, proteins=0.45, fats=0.3, carbohydrates=21.0, description="", picture_path=""
@@ -62,18 +81,35 @@ async def test_recalculate_meal_nutrients():
     )
 
 @pytest.mark.asyncio
-async def test_recalculate_meal_nutrients_empty_meal():
+async def test_recalculate_meal_nutrients_empty_meal(test_db: AsyncSession):
+    test_user = User(
+        login="testuser6",
+        email="test6@example.com",
+        hashed_password="testpassword"
+    )
+    test_db.add(test_user)
+    await test_db.commit()
+    await test_db.refresh(test_user)
+
     # Пустой прием пищи (без продуктов)
     meal = Meal(
         id=2,
         name="Empty Meal",
+        weight=0,
+        calories=0,
+        proteins=0,
+        fats=0,
+        carbohydrates=0,
         recorded_at=date(2024, 2, 6),
-        user_id=1,
+        user_id=test_user.id,
         meal_products=[]
     )
+    test_db.add(meal)
+    await test_db.commit()
+    await test_db.refresh(meal)
 
     # Пересчет характеристик пустого приема пищи
-    updated_meal = await recalculate_meal_nutrients(meal)
+    updated_meal = await recalculate_meal_nutrients(test_db, meal)
 
     # Проверяем, что все характеристики обнулились
     assert updated_meal == MealRead(
@@ -85,7 +121,7 @@ async def test_recalculate_meal_nutrients_empty_meal():
         fats=0.0,
         carbohydrates=0.0,
         recorded_at=date(2024, 2, 6),
-        user_id=1,
+        user_id=test_user.id,
         products=[]
     )
 

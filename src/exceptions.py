@@ -1,10 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-import logging
-
-# Логгер для обработки ошибок
-logger = logging.getLogger("food_diary_backend")
+from src.logging_config import logger
 
 # 307: Temporary Redirect
 async def temporary_redirect_handler(request: Request, exc: HTTPException):

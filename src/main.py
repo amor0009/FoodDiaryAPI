@@ -13,10 +13,8 @@ from src.routers.meal_router import meal_router
 from src.routers.product_router import product_router
 from src.routers.auth_router import auth_router
 from src.routers.user_router import user_router
-from src.routers.profile_picture_router import photo_router
 from src.routers.user_weight_router import user_weight_router
-from .logging_config import logger, LogRequestMiddleware
-
+from .logging_config import logger
 
 app = FastAPI(
     title="Food Diary",
@@ -33,8 +31,6 @@ app.add_exception_handler(RequestValidationError, unprocessable_entity_handler)
 app.add_exception_handler(500, internal_server_error_handler)
 app.add_exception_handler(502, bad_gateway_handler)
 app.add_exception_handler(Exception, general_exception_handler)
-
-app.add_middleware(LogRequestMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,7 +50,6 @@ async def shutdown():
     await rabbitmq_client.close()
     await cache.disconnect()
 
-app.include_router(photo_router, prefix="/photo")
 app.include_router(meal_products_router, prefix="/meal_products")
 app.include_router(user_weight_router, prefix="/user_weight")
 app.include_router(database_router, prefix="/database")

@@ -88,10 +88,12 @@ async def update_meal_product(db: AsyncSession, meal_id: int, data: MealProducts
 
         cache_key = f"meal_products:{meal_id}"
         await cache.delete(cache_key)
+        logger.info(f"Meal product {data.product_id} updated in meal {meal_id}")
 
         return MealProductsRead.model_validate(meal_product)
 
     except NoResultFound:
+        logger.warning(f"Product {data.product_id} not found in meal {meal_id}")
         raise HTTPException(
             status_code=404,
             detail=f"Product with ID {data.product_id} in meal {meal_id} not found"
@@ -114,10 +116,12 @@ async def delete_meal_product(db: AsyncSession, meal_id: int, product_id: int):
 
         cache_key = f"meal_products:{meal_id}"
         await cache.delete(cache_key)
+        logger.info(f"Product {product_id} removed from meal {meal_id}")
 
         return {"message": f"Product with ID {product_id} removed from meal {meal_id}"}
 
     except NoResultFound:
+        logger.warning(f"Product {product_id} not found in meal {meal_id}")
         raise HTTPException(
             status_code=404,
             detail=f"Product with ID {product_id} in meal {meal_id} not found"

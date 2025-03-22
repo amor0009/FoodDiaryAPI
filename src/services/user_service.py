@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.cache.cache import cache
@@ -8,6 +8,9 @@ from src.schemas.user import UserUpdate, UserRead, UserCalculateNutrients
 from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import save_or_update_weight
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"}
+
+# Функция для поиска пользователя по логину или email
 async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
     cache_key = f"user:{email_login}"
     try:
@@ -26,13 +29,16 @@ async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
         if user:
             user_pydantic = UserRead.model_validate(user)
             await cache.set(cache_key, user_pydantic.model_dump(mode="json"), expire=3600)
+            logger.info(f"User {email_login} fetched from DB and cached")
             return user_pydantic
 
+        logger.warning(f"User {email_login} not found in database")
         return None
     except Exception as e:
         logger.error(f"Error finding user by login or email ({email_login}): {str(e)}")
         return None
 
+# Функция для удаления пользователя
 async def delete_user(db: AsyncSession, user: User):
     cache_key = f"user:{user.login}"
     try:
@@ -49,14 +55,14 @@ async def delete_user(db: AsyncSession, user: User):
         logger.error(f"Error deleting user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+# Функция для обновления данных пользователя
 async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: User):
     cache_key = f"user:{current_user.login}"
     try:
-
         query = select(User).where(or_(User.login == current_user.login, User.email == current_user.email))
         result = await db.execute(query)
         user = result.scalar_one_or_none()
-        print(user, type(user))
+
         if not user:
             logger.error(f"User not found in database: {current_user.login}")
             raise HTTPException(
@@ -83,7 +89,6 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
         if user_update.activity_level is not None:
             user.activity_level = user_update.activity_level
 
-
         # Обновление веса пользователя
         if user.weight:
             user_weight = UserWeightUpdate(
@@ -91,6 +96,7 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
                 weight=user.weight,
             )
             await save_or_update_weight(user_weight, db, current_user.id)
+            logger.info(f"User weight updated for user {current_user.login}")
 
         if all([user.weight, user.height, user.age, user.gender, user.aim, user.activity_level]):
             result = await calculate_recommended_nutrients(UserCalculateNutrients.model_validate(user))
@@ -102,14 +108,16 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
         await db.commit()
         await db.refresh(user)
 
+        # Удаляем пользователя из кэша
         await cache.delete(cache_key)
-        logger.info(f"User deleted from cache: {current_user.login}")
+        logger.info(f"User {current_user.login} deleted from cache")
 
         return UserRead.model_validate(user)
     except Exception as e:
         logger.error(f"Error updating user {current_user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+# Функция для расчета рекомендуемых нутриентов для пользователя
 async def calculate_recommended_nutrients(user: UserCalculateNutrients):
     """
     Рассчитывает рекомендуемое количество калорий, белков, жиров и углеводов в день
@@ -179,4 +187,41 @@ async def calculate_recommended_nutrients(user: UserCalculateNutrients):
         "carbohydrates": carbs
     }
 
+    logger.info(f"Calculated recommended nutrients for user {user.id}: {result}")
     return result
+
+# Функция для загрузки фотографии профиля пользователя
+async def upload_profile_picture(file: UploadFile, current_user: User, db: AsyncSession):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        logger.warning(f"Attempted to upload an unsupported image type: {file.content_type}")
+        raise HTTPException(status_code=400, detail="Only images (JPEG, PNG, GIF) are allowed")
+
+    user = await db.get(User, current_user.id)
+    if not user:
+        logger.error(f"User with ID {current_user.id} not found")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Обновление фотографии профиля пользователя
+    user.profile_picture = await file.read()
+    await db.commit()
+    await db.refresh(user)
+    logger.info(f"Profile picture updated for user {current_user.id}")
+
+    # Очистка кэша
+    cache_key1 = f"user:{user.login}"
+    cache_key2 = f"user:{user.email}"
+    await cache.delete(cache_key1)
+    await cache.delete(cache_key2)
+    logger.info(f"Cache cleared for user {current_user.id} (keys: {cache_key1}, {cache_key2})")
+
+    return {"message": "Profile picture updated"}
+
+# Функция для получения фотографии профиля пользователя
+async def get_profile_picture(current_user: User, db: AsyncSession):
+    user = await db.get(User, current_user.id)
+    if not user or not user.profile_picture:
+        logger.warning(f"Profile picture not found for user {current_user.id}")
+        raise HTTPException(status_code=404, detail="No profile picture found")
+
+    logger.info(f"Profile picture retrieved for user {current_user.id}")
+    return user.profile_picture
