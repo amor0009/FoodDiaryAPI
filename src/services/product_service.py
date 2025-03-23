@@ -72,8 +72,16 @@ async def add_product(db: AsyncSession, product: ProductCreate, user_id: int):
     db.add(new_product)
     await db.commit()
     await db.refresh(new_product)
-    cache_key = f"products:{user_id}"
-    await cache.delete(cache_key)
+    await asyncio.gather(
+        cache.delete(f"products:{user_id}"),
+        cache.delete(f"product_exact:{user_id}:{new_product.name}"),
+        cache.delete(f"personal_product:{user_id}:{new_product.id}"),
+        cache.delete(f"personal_product:{user_id}:{new_product.name}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"products:{user_id}:{new_product.id}"),
+        cache.delete(f"products:{user_id}:{new_product.name}"),
+        cache.delete(f"product:{user_id}:{new_product.name}")
+    )
     logger.info(f"Product {product.name} added for user {user_id}")
     return ProductRead.model_validate(new_product)
 
@@ -131,6 +139,16 @@ async def add_product_to_meal(db: AsyncSession, meal_id: int, product: ProductAd
     db.add(meal_product)
     await db.commit()
     await db.refresh(meal)
+    await asyncio.gather(
+        cache.delete(f"products:{user_id}"),
+        cache.delete(f"product_exact:{user_id}:{product.name}"),
+        cache.delete(f"personal_product:{user_id}:{added_product.id}"),
+        cache.delete(f"personal_product:{user_id}:{product.name}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"products:{user_id}:{added_product.id}"),
+        cache.delete(f"products:{user_id}:{product.name}"),
+        cache.delete(f"product:{user_id}:{product.name}")
+    )
     logger.info(f"Product {added_product.name} added to meal {meal_id} for user {user_id}")
     return MealRead.model_validate(meal)
 
@@ -224,22 +242,20 @@ async def get_product_by_id(db: AsyncSession, product_id: int, user_id: int):
 
 # Функция для получения продукта по ID, доступного для изменения пользователем
 async def get_product_available_to_change_by_id(db: AsyncSession, product_id: int, user_id: int):
-    cache_key = f"personal_product:{user_id}:{product_id}"
-    cached_data = await cache.get(cache_key)
-    if cached_data:
-        logger.info(f"Retrieved product {product_id} from cache for user {user_id}")
-        return ProductRead.model_validate(cached_data)
-
+    # Формируем запрос
     query = select(Product).where(
-        or_((Product.id == product_id),
-            and_((Product.is_public == False), (Product.user_id == user_id)))
+        and_(
+            Product.id == product_id,  # Продукт должен иметь указанный ID
+            or_(
+                Product.is_public == False,  # Продукт не публичный
+                Product.user_id == user_id  # Или продукт принадлежит пользователю
+            )
+        )
     )
     result = await db.execute(query)
     product = result.scalar_one_or_none()
     if product:
-        product_pydantic = ProductRead.model_validate(product)
-        await cache.set(cache_key, product_pydantic.model_dump(mode="json"), expire=3600)
-        logger.info(f"Added product {product_id} to cache for user {user_id}")
+        logger.info(f"Found product {product_id} for user {user_id}")
         return product
     return None
 
@@ -284,10 +300,13 @@ async def update_product(db: AsyncSession, product_update: ProductUpdate, user_i
 
     await asyncio.gather(
         cache.delete(f"products:{user_id}"),
-        cache.delete(f"personal_product:{user_id}:{db_product.id}"),
-        cache.delete(f"personal_product:{user_id}:{db_product.name}"),
-        cache.delete(f"products:{user_id}:{db_product.id}"),
-        cache.delete(f"products:{user_id}:{db_product.name}")
+        cache.delete(f"product_exact:{user_id}:{product_update.name}"),
+        cache.delete(f"personal_product:{user_id}:{product_update.id}"),
+        cache.delete(f"personal_product:{user_id}:{product_update.name}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"products:{user_id}:{product_update.id}"),
+        cache.delete(f"products:{user_id}:{product_update.name}"),
+        cache.delete(f"product:{user_id}:{product_update.name}")
     )
 
     return ProductRead.model_validate(db_product)
@@ -323,8 +342,10 @@ async def delete_product(db: AsyncSession, user_id: int, product_id: int):
 
     await asyncio.gather(
         cache.delete(f"products:{user_id}"),
+        cache.delete(f"product_exact:{user_id}:{product.name}"),
         cache.delete(f"personal_product:{user_id}:{product.id}"),
         cache.delete(f"personal_product:{user_id}:{product.name}"),
+        cache.delete(f"personal_products:{user_id}"),
         cache.delete(f"products:{user_id}:{product.id}"),
         cache.delete(f"products:{user_id}:{product.name}"),
         cache.delete(f"product:{user_id}:{product.name}")
@@ -333,7 +354,7 @@ async def delete_product(db: AsyncSession, user_id: int, product_id: int):
     return ProductRead.model_validate(product)
 
 # Функция для загрузки фотографии профиля пользователя
-async def upload_picture(file: UploadFile, user_id: int, product_id: int, db: AsyncSession):
+async def upload_product_picture(file: UploadFile, user_id: int, product_id: int, db: AsyncSession):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         logger.warning(f"Attempted to upload an unsupported image type: {file.content_type}")
         raise HTTPException(status_code=400, detail="Only images (JPEG, PNG, GIF) are allowed")
@@ -348,18 +369,19 @@ async def upload_picture(file: UploadFile, user_id: int, product_id: int, db: As
 
     await asyncio.gather(
         cache.delete(f"products:{user_id}"),
-        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"product_exact:{user_id}:{product.name}"),
         cache.delete(f"personal_product:{user_id}:{product.id}"),
         cache.delete(f"personal_product:{user_id}:{product.name}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"products:{user_id}:{product.id}"),
         cache.delete(f"products:{user_id}:{product.name}"),
-        cache.delete(f"product_exact:{user_id}:{product.name}"),
-        cache.delete(f"product:{user_id}:{product.id}"),
+        cache.delete(f"product:{user_id}:{product.name}")
     )
 
     return {"message": "Product picture updated"}
 
 # Функция для получения фотографии профиля пользователя
-async def get_picture(user_id: int, product_id: int, db: AsyncSession):
+async def get_product_picture(user_id: int, product_id: int, db: AsyncSession):
     product = await get_product_available_to_change_by_id(db, product_id, user_id)
 
     if not product or not product.picture:

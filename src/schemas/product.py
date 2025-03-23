@@ -29,7 +29,6 @@ class ProductUpdate(BaseModel):
     fats: Optional[float] = None
     carbohydrates: Optional[float] = None
     description: Optional[str] = None
-    picture_path: Optional[str] = None
 
 class ProductCreate(BaseModel):
     name: str

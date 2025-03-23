@@ -1,4 +1,6 @@
 from datetime import date, timedelta, datetime
+
+import asyncio
 from fastapi import HTTPException, status
 from sqlalchemy import select, and_, delete
 from sqlalchemy.exc import IntegrityError
@@ -99,6 +101,15 @@ async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
 
         await db.commit()
         await db.refresh(db_meal)
+        await asyncio.gather(
+            cache.delete(f"user_meals:{user_id}"),
+            cache.delete(f"user_meals_products:{user_id}:{db_meal.recorded_at}"),
+            cache.delete(f"user_meal:{user_id}:{db_meal.id}"),
+            cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}"),
+            cache.delete(f"personal_products:{user_id}"),
+            cache.delete(f"user_meals_history:{user_id}")
+        )
+
         logger.info(f"Meal {meal.name} with products successfully saved to the database.")
 
         meal_pydantic = await recalculate_meal_nutrients(db, db_meal)
@@ -279,9 +290,14 @@ async def update_meal(db: AsyncSession, meal_update: MealUpdate, meal_id: int, u
     updated_meal = await recalculate_meal_nutrients(db, db_meal)
     await db.commit()
 
-    await cache.delete(f"user_meals:{user_id}")
-    if db_meal.recorded_at:
-        await cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}")
+    await asyncio.gather(
+        cache.delete(f"user_meals:{user_id}"),
+        cache.delete(f"user_meals_products:{user_id}:{db_meal.recorded_at}"),
+        cache.delete(f"user_meal:{user_id}:{db_meal.id}"),
+        cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"user_meals_history:{user_id}")
+    )
 
     logger.info(f"Meal {meal_id} for user {user_id} cache deleted.")
     return updated_meal
@@ -304,7 +320,12 @@ async def delete_meal(db: AsyncSession, meal_id: int, user_id: int):
     await db.delete(db_meal)
     await db.commit()
     logger.info(f"Meal {meal_id} for user {user_id} deleted successfully.")
-    await cache.delete(f"user_meals:{user_id}")
-    if db_meal.recorded_at:
-        await cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}")
+    await asyncio.gather(
+        cache.delete(f"user_meals:{user_id}"),
+        cache.delete(f"user_meals_products:{user_id}:{db_meal.recorded_at}"),
+        cache.delete(f"user_meal:{user_id}:{db_meal.id}"),
+        cache.delete(f"user_meals:{user_id}:{db_meal.recorded_at}"),
+        cache.delete(f"personal_products:{user_id}"),
+        cache.delete(f"user_meals_history:{user_id}")
+    )
     return {"message": "Meal and its products deleted successfully"}

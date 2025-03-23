@@ -183,7 +183,7 @@ async def test_add_product_to_meal(test_db: AsyncSession, test_cache):
     await test_db.refresh(meal)
     await test_db.refresh(product)
 
-    product_add = ProductAdd(id=product.id, name="Chicken", weight=50)
+    product_add = ProductAdd(name="Chicken", weight=50)
     updated_meal = await add_product_to_meal(test_db, meal.id, product_add, test_user.id)
 
     assert updated_meal.weight == 50
@@ -446,20 +446,10 @@ async def test_get_product_available_to_change_by_id(test_db: AsyncSession, test
     await test_db.commit()
     await test_db.refresh(product)
 
-    await cache.delete(f"personal_product:{test_user.id}:{product.id}")
-
     product = await get_product_available_to_change_by_id(test_db, product.id, test_user.id)
     assert product is not None
     assert product.name == "Cesar"
     assert product.is_public is False
-
-    cached_product = await cache.get(f"personal_product:{test_user.id}:{product.id}")
-    assert cached_product is not None
-    assert cached_product["name"] == "Cesar"
-
-    product_from_cache = await get_product_available_to_change_by_id(test_db, product.id, test_user.id)
-    assert product_from_cache is not None
-    assert product_from_cache.name == cached_product["name"]
 
 @pytest.mark.asyncio
 async def test_get_product_available_to_change_by_name(test_db: AsyncSession, test_cache):

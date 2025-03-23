@@ -47,7 +47,7 @@ async def update_current_user(user: UserUpdate, db: AsyncSession = Depends(get_a
 async def calculate_nutrients_for_all_users(user: UserCalculateNutrients):
     return await calculate_recommended_nutrients(user)
 
-
+# Эндпоинт для загрузки нового фото профиля
 @user_router.post("/upload-profile-picture")
 async def upload_photo(
     file: UploadFile = File(...),  # Получаем файл из запроса

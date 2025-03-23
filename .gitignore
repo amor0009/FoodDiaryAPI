@@ -15,7 +15,7 @@ __pycache__/
 
 # Миграции базы данных
 migration/
-
+src/database/data
 # Виртуальное окружение
 venv/
 env/
