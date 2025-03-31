@@ -16,14 +16,6 @@ from src.services.user_service import find_user_by_login_and_email
 # Регулярное выражение для проверки только английских символов
 ENGLISH_PATTERN = re.compile(r'^[a-zA-Z0-9@._-]+$')
 
-# Проверка, содержит ли поле только английские символы, цифры и допустимые спецсимволы
-def validate_english_only(field_name: str, value: str):
-    if not ENGLISH_PATTERN.match(value):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{field_name} should contain only English letters, numbers, and valid special characters."
-        )
-
 # Аутентификация пользователя
 async def authenticate_user(db: AsyncSession, email_login: str, password: str):
     cache_key = f"user_auth:{email_login}"
@@ -53,6 +45,14 @@ async def authenticate_user(db: AsyncSession, email_login: str, password: str):
         )
     except Exception as e:
         logger.error(f"Error authenticating user {email_login}: {str(e)}")
+
+# Проверка, содержит ли поле только английские символы, цифры и допустимые спецсимволы
+def validate_english_only(field_name: str, value: str):
+    if not ENGLISH_PATTERN.match(value):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_name} should contain only English letters, numbers, and valid special characters."
+        )
 
 # Создание нового пользователя
 async def create_user(db: AsyncSession, user: UserCreate):

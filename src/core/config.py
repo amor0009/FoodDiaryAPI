@@ -22,8 +22,11 @@ SECRET_AUTH = os.environ.get("SECRET_AUTH")
 ALGORITHM = os.environ.get("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
-RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST")
-RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT"))
+RABBITMQ_DEFAULT_USER = os.environ.get("RABBITMQ_DEFAULT_USER")
+RABBITMQ_DEFAULT_PASS = os.environ.get("RABBITMQ_DEFAULT_PASS")
+RABBITMQ_DEFAULT_HOST = os.environ.get("RABBITMQ_DEFAULT_HOST")
+RABBITMQ_DEFAULT_VHOST = os.environ.get("RABBITMQ_DEFAULT_VHOST")
+RABBITMQ_DEFAULT_PORT = int(os.environ.get("RABBITMQ_DEFAULT_PORT"))
 
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
@@ -31,7 +34,7 @@ SMTP_PORT = os.environ.get("SMTP_PORT")
 SMTP_HOST = os.environ.get("SMTP_HOST")
 
 TEMPLATES_PATH = os.environ.get("TEMPLATES_PATH")
-
+LOGGER_FILE_PATH = os.environ.get("LOGGER_FILE_PATH")
 FILE_PATH = os.environ.get("FILE_PATH")
 
 REDIRECT_URI = os.environ.get("REDIRECT_URI")

@@ -1,5 +1,6 @@
 import io
 import json
+import os
 from pathlib import Path
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,15 +11,35 @@ from src.logging_config import logger  # Импортируй логгер
 async def image_to_binary(image_path: str) -> bytes:
     try:
         logger.info(f"Loading image from: {image_path}")
+
+        # Проверка существования файла
+        if not Path(image_path).exists():
+            logger.error(f"File does not exist: {image_path}")
+            return None
+
+        # Проверка доступности файла
+        if not os.access(image_path, os.R_OK):
+            logger.error(f"No read permissions for: {image_path}")
+            return None
+
+        # Открытие изображения
         with Image.open(image_path) as img:
+            logger.info(f"Image opened successfully. Format: {img.format}, Mode: {img.mode}")
+
+            # Конвертация в bytes
             img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG')  # Используем JPEG, так как у тебя .jpg
-            return img_byte_arr.getvalue()
-    except FileNotFoundError:
-        logger.error(f"Image file not found: {image_path}")
-        return None
+            img.save(img_byte_arr, format='JPEG')
+            img_bytes = img_byte_arr.getvalue()
+
+            if not img_bytes:
+                logger.error("Converted image is empty!")
+                return None
+
+            logger.info(f"Image converted successfully. Size: {len(img_bytes)} bytes")
+            return img_bytes
+
     except Exception as e:
-        logger.error(f"Error processing image {image_path}: {e}")
+        logger.error(f"Error in image_to_binary: {str(e)}", exc_info=True)
         return None
 
 # Загрузка продуктов из JSON-файла и добавление их в базу данных
@@ -56,7 +77,7 @@ async def load_products_from_json(db: AsyncSession, file_path: str):
                 fats=product_data["fats"],
                 carbohydrates=product_data["carbohydrates"],
                 description=product_data["description"],
-                picture=picture,  # Сохраняем бинарные данные изображения
+                picture=picture,
                 is_public=product_data["is_public"],
                 user_id=product_data["user_id"]
             )

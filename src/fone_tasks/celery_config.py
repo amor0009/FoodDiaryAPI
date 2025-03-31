@@ -1,33 +1,46 @@
 from celery import Celery
 from celery.schedules import crontab
-from task import start_rabbitmq_consumer
+from kombu import Queue, Exchange
 
+# Инициализация Celery
 celery = Celery(
-    __name__,
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0"
+    'tasks',
+    broker='amqp://dev:dev@rabbitmq:5672//fooddiary',  # Используем новый vhost
+    backend='rpc://',
+    include=['src.fone_tasks']  # Путь к модулю с задачами
 )
 
+# Настройки Celery
 celery.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    timezone="UTC",
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
+    timezone='Europe/Moscow',
     enable_utc=True,
+    task_default_queue='default',
+    task_queues=[
+        Queue('default', Exchange('default'), routing_key='default'),
+        Queue('registration_queue', Exchange('registration'), routing_key='registration'),
+        Queue('cleanup_queue', Exchange('cleanup'), routing_key='cleanup'),
+    ],
+    task_routes={
+        'start_rabbitmq_consumer': {'queue': 'registration_queue'},
+        'delete_old_user_weights': {'queue': 'cleanup_queue'},
+        'delete_old_meal_products': {'queue': 'cleanup_queue'},
+        'add_daily_weight_records': {'queue': 'cleanup_queue'},
+    },
+    beat_schedule={
+        'delete-old-weights': {
+            'task': 'delete_old_user_weights',
+            'schedule': crontab(hour=0, minute=0),  # Запускать ежедневно
+        },
+        'delete-old-meals': {
+            'task': 'delete_old_meal_products',
+            'schedule': crontab(hour=0, minute=0),
+        },
+        'add-daily-weights': {
+            'task': 'add_daily_weight_records',
+            'schedule': crontab(hour=3, minute=0),  # Каждый день в 3:00
+        },
+    }
 )
-
-# Функция для старта consumer при запуске Celery worker
-@celery.on_after_configure.connect
-def setup_rabbitmq_consumer(sender, **kwargs):
-    sender.add_periodic_task(10.0, start_rabbitmq_consumer.s(), name="Start RabbitMQ Consumer")
-
-celery.conf.beat_schedule = {
-    'delete-old-user-weights-every-day': {
-        'task': 'tasks.delete_old_user_weights',  # имя задачи из tasks.py
-        'schedule': crontab(hour=0, minute=0),    # запуск каждый день в полночь
-    },
-    'delete-old-meal-products-every-day': {
-        'task': 'tasks.delete_old_meal_products',
-        'schedule': crontab(hour=0, minute=0),    # запуск каждый день в полночь
-    },
-}

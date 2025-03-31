@@ -18,6 +18,8 @@ from .logging_config import logger
 
 app = FastAPI(
     title="Food Diary",
+    version="0.1.2",
+    docs_url="/docs",
 )
 
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -34,7 +36,7 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://frontend"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,8 +1,7 @@
 from datetime import timedelta, datetime
-import jwt
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.cache.cache import cache
@@ -28,11 +27,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
             logger.warning("Attempt to use blacklisted token")
             raise credentials_exception
 
-        payload = jwt.decode(token, SECRET_AUTH, algorithms=[ALGORITHM])
+        payload = pyjwt.decode(token, SECRET_AUTH, algorithms=[ALGORITHM])
         login: str = payload.get("sub")
         if login is None:
             raise credentials_exception
-    except PyJWTError:
+    except Exception:
         raise credentials_exception
 
     user = await find_user_by_login_and_email(db, login)
@@ -56,7 +55,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_AUTH, algorithm=ALGORITHM)
+    return pyjwt.encode(to_encode, SECRET_AUTH, algorithm=ALGORITHM)
 
 # Добавление токена в черный список с TTL, равным времени истечения токена
 async def add_token_to_blacklist(token: str, expires_at: datetime):

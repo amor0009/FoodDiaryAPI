@@ -1,5 +1,4 @@
 from datetime import date, timedelta, datetime
-
 import asyncio
 from fastapi import HTTPException, status
 from sqlalchemy import select, and_, delete
@@ -95,8 +94,6 @@ async def add_meal(db: AsyncSession, meal: MealCreate, user_id: int):
                 product_id=product.product_id,
                 product_weight=product.product_weight
             )
-            meal_product.product = db_product
-            db_meal.meal_products.append(meal_product)
             db.add(meal_product)
 
         await db.commit()

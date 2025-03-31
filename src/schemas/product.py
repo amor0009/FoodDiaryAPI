@@ -15,7 +15,7 @@ class ProductRead(BaseModel):
 
     @computed_field
     def picture(self) -> Optional[str]:
-        return f"/product/picture/{self.id}" if self.has_picture else None
+        return f"/product/product-picture/{self.id}" if self.has_picture else None
 
     class Config:
         from_attributes = True

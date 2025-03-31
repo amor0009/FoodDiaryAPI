@@ -7,25 +7,30 @@ from src.logging_config import logger
 # Обрабатывает полученное сообщение из очереди RabbitMQ
 async def process_message(message: IncomingMessage):
     try:
-        print(f"Received message: {message.body.decode()}")
-        logger.info(f'Received message: {message.body.decode()}')
         data = json.loads(message.body.decode())
-        to_email = data.get("email")
-        user_name = data.get("login")
+        logger.info(f'Processing message: {data}')
 
-        if to_email:
-            # Отправляет email уведомление пользователю
-            await send_email(
-                to_email=to_email,
-                subject="Welcome to Food Diary!",
-                template_name="registration_email_notification.html",
-                context={"user_name": user_name}
-            )
+        if not data.get("email"):
+            logger.error("No email in message")
+            await message.reject(requeue=False)
+            return
+
+        await send_email(
+            to_email=data["email"],
+            subject="Welcome to Food Diary!",
+            template_name="registration_email_notification.html",
+            context={"user_name": data.get("login", "")}
+        )
+
         await message.ack()
-        print("Message is acknowledged and removed from the queue")
-        logger.info(f"Message: {message.body.decode()} - is acknowledged and removed from the queue")
+        logger.info("Email sent successfully")
+
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON format")
+        await message.reject(requeue=False)
     except Exception as e:
-        print(f"Error processing message: {e}")
+        logger.error(f"Error processing message: {e}")
+        await message.reject(requeue=True)  # Попробовать снова
 
 # Начинает потребление сообщений из указанной очереди RabbitMQ
 async def consume_messages(queue_name: str = "registration_queue"):

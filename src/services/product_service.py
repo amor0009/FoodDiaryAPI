@@ -25,7 +25,8 @@ async def recalculate_product_nutrients(db_product: Product, product_weight: flo
         fats=round(db_product.fats * factor, 2),
         carbohydrates=round(db_product.carbohydrates * factor, 2),
         description=db_product.description,
-        picture_path=db_product.picture
+        has_picture=db_product.has_picture,
+        picture=db_product.picture
     )
 
 # Функция для получения всех продуктов пользователя
@@ -382,7 +383,7 @@ async def upload_product_picture(file: UploadFile, user_id: int, product_id: int
 
 # Функция для получения фотографии профиля пользователя
 async def get_product_picture(user_id: int, product_id: int, db: AsyncSession):
-    product = await get_product_available_to_change_by_id(db, product_id, user_id)
+    product = await db.get(Product, product_id)
 
     if not product or not product.picture:
         logger.warning(f"Picture is not found for user's {user_id} product {product_id}")
