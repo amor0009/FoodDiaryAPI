@@ -6,7 +6,7 @@ from src.models.user import User
 from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import get_current_weight, get_weights, save_or_update_weight
 
-user_weight_router = APIRouter()
+user_weight_router = APIRouter(tags=["User_Weight"])
 
 # Эндпоинт для обновления веса текущего пользователя
 @user_weight_router.put("/me")

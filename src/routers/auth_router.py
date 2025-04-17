@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from select import select
 import httpx
@@ -11,11 +10,11 @@ from src.database.database import get_async_session
 from src.logging_config import logger
 from src.models.user import User
 from src.rabbitmq.consumer import consume_messages
-from src.schemas.user import UserCreate
-from src.services.auth_service import create_user, authenticate_user, validate_token_logic, logout_user
+from src.schemas.user import UserCreate, UserAuth
+from src.services.auth_service import create_user, authenticate_user, logout_user
 import urllib.parse
 
-auth_router = APIRouter()
+auth_router = APIRouter(tags=["Authentication"])
 
 # Эндпоинт для авторизации через Google (перенаправление пользователя)
 @auth_router.get('/google')
@@ -118,29 +117,24 @@ async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_se
 # Эндпоинт для авторизации пользователя по email и паролю
 @auth_router.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    data: UserAuth,
+    response: Response,
     db: AsyncSession = Depends(get_async_session)
 ):
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    user = await authenticate_user(db, data.username, data.password)
     if not user:
-        logger.warning(f"Failed login attempt: {form_data.username}")
+        logger.warning(f"Failed login attempt: {data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": form_data.username})
-    logger.info(f"User {form_data.username} successfully logged in")
-    return {"access_token": access_token, "token_type": "bearer"}
+    access_token = create_access_token(data={"sub": data.username})
+    logger.info(f"User {data.username} successfully logged in")
+    response.set_cookie("fooddiary_access_token", access_token, httponly=True)
+    return access_token
 
-# Эндпоинт для валидации токена
-@auth_router.post("/validate-token")
-async def validate_token(current_user: User = Depends(get_current_user)):
-    try:
-        return validate_token_logic(current_user)
-    except HTTPException as e:
-        raise e
 
 # Эндпоинт для выхода пользователя (аннулирования токена)
 @auth_router.post("/logout")

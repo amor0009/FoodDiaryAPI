@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import HTTPException, status, UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,7 @@ from src.schemas.user_weight import UserWeightUpdate
 from src.services.user_weight_service import save_or_update_weight
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"}
+
 
 # Функция для поиска пользователя по логину или email
 async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
@@ -38,6 +41,7 @@ async def find_user_by_login_and_email(db: AsyncSession, email_login: str):
         logger.error(f"Error finding user by login or email ({email_login}): {str(e)}")
         return None
 
+
 # Функция для удаления пользователя
 async def delete_user(db: AsyncSession, user: User):
     cache_key = f"user:{user.login}"
@@ -54,6 +58,7 @@ async def delete_user(db: AsyncSession, user: User):
     except Exception as e:
         logger.error(f"Error deleting user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 # Функция для обновления данных пользователя
 async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: User):
@@ -99,7 +104,7 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
             logger.info(f"User weight updated for user {current_user.login}")
 
         if all([user.weight, user.height, user.age, user.gender, user.aim, user.activity_level]):
-            result = await calculate_recommended_nutrients(UserCalculateNutrients.model_validate(user))
+            result = await calculate_nutrients(UserCalculateNutrients.model_validate(user), current_user)
             user.recommended_calories = result["calories"]
             logger.warning(f"Расчет нутриентов у пользователя: {user.id} - прошёл успешно")
         else:
@@ -117,28 +122,26 @@ async def update_user(user_update: UserUpdate, db: AsyncSession, current_user: U
         logger.error(f"Error updating user {current_user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# Функция для расчета рекомендуемых нутриентов для пользователя
-async def calculate_recommended_nutrients(user: UserCalculateNutrients):
-    """
-    Рассчитывает рекомендуемое количество калорий, белков, жиров и углеводов в день
-    на основе пола, роста, возраста, веса, цели и уровня активности пользователя.
-    """
-    logger.info(f"Расчет нутриентов для пользователя {user.id}")
 
+# Базовый расчёт нутриентов (доступен всем пользователям)
+async def calculate_nutrients_basic(user: UserCalculateNutrients, current_user: Optional[User] = None):
+    logger.info(f"Calculating basic nutrients for user {'anonymous' if not current_user.id else f'ID {current_user.id}'}")
+
+    # Проверка обязательных полей
     if not all([user.weight, user.height, user.age, user.gender, user.aim, user.activity_level]):
-        logger.warning(f"Недостаточно данных для расчета нутриентов у пользователя {user.id}")
+        logger.warning("Insufficient data for calculation")
         raise ValueError("Для расчета необходимо указать вес, рост, возраст, пол, цель и уровень активности.")
 
-    # Расчет BMR
+    # Расчёт базового метаболизма (BMR)
     if user.gender.lower() == "male":
         bmr = 10 * user.weight + 6.25 * user.height - 5 * user.age + 5
     elif user.gender.lower() == "female":
         bmr = 10 * user.weight + 6.25 * user.height - 5 * user.age - 161
     else:
-        logger.error(f"Некорректный пол '{user.gender}' у пользователя {user.id}")
+        logger.error(f"Invalid gender value '{user.gender}'")
         raise ValueError("Некорректное значение пола. Доступны: 'male', 'female'.")
 
-    # Коррекция BMR по уровню активности
+    # Коэффициенты активности
     activity_factors = {
         "sedentary": 1.2,
         "light": 1.375,
@@ -148,26 +151,27 @@ async def calculate_recommended_nutrients(user: UserCalculateNutrients):
     }
 
     if user.activity_level.lower() not in activity_factors:
-        logger.error(f"Некорректный уровень активности '{user.activity_level}' у пользователя {user.id}")
-        raise ValueError("Некорректный уровень активности. Доступны: 'sedentary', 'light', 'moderate', 'active', 'very_active'.")
+        logger.error(f"Invalid activity level '{user.activity_level}'")
+        raise ValueError(
+            "Некорректный уровень активности. Доступны: 'sedentary', 'light', 'moderate', 'active', 'very_active'.")
 
     daily_calories = bmr * activity_factors[user.activity_level.lower()]
 
-    # Коррекция калорий в зависимости от цели
+    # Коррекция по цели
     aim_factors = {
-        "loss": 0.8,     # Похудение (-20%)
-        "maintain": 1.0, # Поддержание веса
-        "gain": 1.2      # Набор массы (+20%)
+        "loss": 0.8,  # Похудение (-20%)
+        "maintain": 1.0,  # Поддержание веса
+        "gain": 1.2  # Набор массы (+20%)
     }
 
     if user.aim.lower() not in aim_factors:
-        logger.error(f"Некорректная цель '{user.aim}' у пользователя {user.id}")
+        logger.error(f"Invalid goal '{user.aim}'")
         raise ValueError("Некорректная цель. Доступны: 'loss', 'maintain', 'gain'.")
 
     daily_calories *= aim_factors[user.aim.lower()]
     daily_calories = round(daily_calories, 2)
 
-    # Распределение макронутриентов
+    # Расчёт макронутриентов
     macro_ratios = {
         "loss": {"protein": 0.4, "fat": 0.3, "carbohydrates": 0.3},
         "maintain": {"protein": 0.3, "fat": 0.3, "carbohydrates": 0.4},
@@ -175,20 +179,85 @@ async def calculate_recommended_nutrients(user: UserCalculateNutrients):
     }
 
     macros = macro_ratios[user.aim.lower()]
-
     protein = round((daily_calories * macros["protein"]) / 4, 2)  # 1 г белка = 4 ккал
-    fat = round((daily_calories * macros["fat"]) / 9, 2)          # 1 г жира = 9 ккал
-    carbs = round((daily_calories * macros["carbohydrates"]) / 4, 2)      # 1 г углеводов = 4 ккал
+    fat = round((daily_calories * macros["fat"]) / 9, 2)  # 1 г жира = 9 ккал
+    carbs = round((daily_calories * macros["carbohydrates"]) / 4, 2)  # 1 г углеводов = 4 ккал
 
     result = {
         "calories": daily_calories,
-        "protein": protein,
-        "fat": fat,
+        "proteins": protein,
+        "fats": fat,
         "carbohydrates": carbs
     }
 
-    logger.info(f"Calculated recommended nutrients for user {user.id}: {result}")
+    logger.info(f"Basic nutrients calculation completed for user {'anonymous' if not current_user.id else f'ID {current_user.id}'}")
     return result
+
+
+# Премиум расчёт нутриентов (только для аутентифицированных пользователей с подпиской)
+async def calculate_nutrients(user: UserCalculateNutrients, current_user: User):
+    if not current_user:
+        logger.warning(
+            f"Premium feature access attempt by user with id: {current_user.id}.")
+        raise PermissionError("Доступно только для пользователей с премиум подпиской")
+
+    logger.info(f"Starting premium nutrients calculation for user ID {current_user.id}")
+
+    # Базовый расчёт
+    basic_result = await calculate_nutrients_basic(user, current_user)
+
+    # Дополнительные премиум-расчёты
+    height_m = user.height / 100
+    bmi = round(user.weight / (height_m ** 2), 2)
+    min_normal_weight = round(18.5 * (height_m ** 2), 2)
+    max_normal_weight = round(24.9 * (height_m ** 2), 2)
+
+    weight_change_info = {}
+    if user.target_weight and user.target_days:
+        weight_diff = user.target_weight - user.weight
+        weekly_goal = min(max(abs(weight_diff / user.target_days * 7), 1), 0.5)
+        weekly_goal *= 1 if weight_diff > 0 else -1
+        calorie_adjustment = (weekly_goal * 7700) / 7
+        basic_result["calories"] = round(basic_result["calories"] + calorie_adjustment, 2)
+
+        weight_change_info = {
+            "target_weight": user.target_weight,
+            "weekly_goal": round(weekly_goal, 2),
+            "estimated_weeks": round(abs(weight_diff) / abs(weekly_goal)),
+            "daily_calorie_adjustment": round(calorie_adjustment, 2)
+        }
+
+    premium_result = {
+        **basic_result,
+        "bmi": bmi,
+        "bmi_interpretation": get_bmi_interpretation(bmi),
+        "recommended_weight_range": {
+            "min": min_normal_weight,
+            "max": max_normal_weight
+        },
+        "weight_plan": weight_change_info or None
+    }
+
+    logger.info(f"Premium nutrients calculation completed for user ID {current_user.id}")
+    return premium_result
+
+
+# Интерпретация показателей ИМТ
+def get_bmi_interpretation(bmi: float) -> str:
+    if bmi < 16:
+        return "Severe underweight"
+    elif bmi < 18.5:
+        return "Underweight"
+    elif bmi < 25:
+        return "Normal weight"
+    elif bmi < 30:
+        return "Overweight"
+    elif bmi < 35:
+        return "Obesity class I"
+    elif bmi < 40:
+        return "Obesity class II"
+    return "Obesity class III"
+
 
 # Функция для загрузки фотографии профиля пользователя
 async def upload_profile_picture(file: UploadFile, current_user: User, db: AsyncSession):
@@ -215,6 +284,7 @@ async def upload_profile_picture(file: UploadFile, current_user: User, db: Async
     logger.info(f"Cache cleared for user {current_user.id} (keys: {cache_key1}, {cache_key2})")
 
     return {"message": "Profile picture updated"}
+
 
 # Функция для получения фотографии профиля пользователя
 async def get_profile_picture(current_user: User, db: AsyncSession):

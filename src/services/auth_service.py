@@ -1,32 +1,23 @@
-from datetime import datetime
-import jwt
 import re
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Response
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.cache.cache import cache
-from src.core.config import SECRET_AUTH, ALGORITHM
-from src.core.security import verify_password, get_password_hash, add_token_to_blacklist
+from src.core.security import verify_password, get_password_hash
 from src.logging_config import logger
 from src.models.user import User
 from src.rabbitmq.producer import publish_message
 from src.schemas.user import *
 from src.services.user_service import find_user_by_login_and_email
 
+
 # Регулярное выражение для проверки только английских символов
 ENGLISH_PATTERN = re.compile(r'^[a-zA-Z0-9@._-]+$')
 
+
 # Аутентификация пользователя
 async def authenticate_user(db: AsyncSession, email_login: str, password: str):
-    cache_key = f"user_auth:{email_login}"
     try:
-        # Проверяем кэш
-        cached_user = await cache.get(cache_key)
-        if cached_user:
-            logger.info(f"Cache hit for user authentication: {email_login}")
-            return UserRead.model_validate(cached_user)
-
-        logger.info(f"Cache miss for user authentication: {email_login}. Fetching from database.")
+        logger.info(f"Fetching user {email_login} from database.")
 
         # Поиск пользователя в БД
         query = select(User).where(or_(User.login == email_login, User.email == email_login))
@@ -36,7 +27,6 @@ async def authenticate_user(db: AsyncSession, email_login: str, password: str):
         # Проверяем пароль
         if user and verify_password(password, user.hashed_password):
             user_pydantic = UserRead.model_validate(user)
-            await cache.set(cache_key, user_pydantic.model_dump(mode="json"))
             return user_pydantic
 
         raise HTTPException(
@@ -46,6 +36,7 @@ async def authenticate_user(db: AsyncSession, email_login: str, password: str):
     except Exception as e:
         logger.error(f"Error authenticating user {email_login}: {str(e)}")
 
+
 # Проверка, содержит ли поле только английские символы, цифры и допустимые спецсимволы
 def validate_english_only(field_name: str, value: str):
     if not ENGLISH_PATTERN.match(value):
@@ -53,6 +44,7 @@ def validate_english_only(field_name: str, value: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{field_name} should contain only English letters, numbers, and valid special characters."
         )
+
 
 # Создание нового пользователя
 async def create_user(db: AsyncSession, user: UserCreate):
@@ -106,22 +98,7 @@ async def create_user(db: AsyncSession, user: UserCreate):
         logger.error(f"Error creating user {user.login}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# Проверка токена
-async def validate_token_logic(user):
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return {"message": "Token is valid", "user_id": user.id, "username": user.login}
 
 # Деактивация токена (выход из аккаунта)
-async def logout_user(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_AUTH, algorithms=[ALGORITHM])
-        exp = datetime.utcfromtimestamp(payload.get("exp"))
-
-        # Добавляем токен в черный список
-        await add_token_to_blacklist(token, exp)
-        logger.info("User successfully logged out")
-        return {"message": "Successfully logged out"}
-    except jwt.PyJWTError:
-        logger.error("Invalid token on logout")
-        raise HTTPException(status_code=400, detail="Invalid token")
+async def logout_user(response: Response):
+    response.delete_cookie("fooddiary_access_token")

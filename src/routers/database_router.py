@@ -6,12 +6,11 @@ from src.database.database import get_async_session
 from src.database.fill_database import fill_database
 from src.logging_config import logger
 
-database_router = APIRouter()
+database_router = APIRouter(tags=["Database"])
 
 # Эндпоинт для заполнения базы данных из файла
 @database_router.post('/fill')
 async def fill_db(db: AsyncSession = Depends(get_async_session)):
-    # Очищаем таблицу перед загрузкой новых данных
     await db.execute(text("TRUNCATE TABLE product RESTART IDENTITY CASCADE"))
     await db.commit()
     logger.info("Product table truncated successfully")
