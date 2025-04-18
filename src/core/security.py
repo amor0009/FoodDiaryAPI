@@ -18,7 +18,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 class Security:
     # Получение токена
     @staticmethod
-    async def get_token(cls, request: Request):
+    async def get_token(request: Request):
         token = request.cookies.get("fooddiary_access_token")
         if not token:
             raise HTTPException(
@@ -29,7 +29,7 @@ class Security:
 
     # Получение текущего пользователя из токена
     @staticmethod
-    async def get_current_user(cls, token: str = Depends(get_token), db: AsyncSession = Depends(get_async_session)):
+    async def get_current_user(token: str = Depends(get_token), db: AsyncSession = Depends(get_async_session)):
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -37,7 +37,7 @@ class Security:
         )
 
         try:
-            payload = pyjwt.decode(cls, token, Configuration.SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
+            payload = pyjwt.decode(token, Configuration.SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
         except Exception:
             raise credentials_exception
         expire: str = payload.get("exp")
