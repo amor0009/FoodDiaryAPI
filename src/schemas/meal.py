@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from src.schemas.meal_products import MealProductsUpdate, MealProductsCreate
 from src.schemas.product import ProductRead
 
+
 class MealRead(BaseModel):
     id: int
     name: str
@@ -33,6 +34,7 @@ class MealRead(BaseModel):
             "products": [product.dict() for product in self.products] if self.products else []
         }
 
+
 class MealUpdate(BaseModel):
     name: str
     weight: float
@@ -41,6 +43,7 @@ class MealUpdate(BaseModel):
     fats: float
     carbohydrates: float
     products: Optional[List[MealProductsUpdate]] = []
+
 
 class MealCreate(BaseModel):
     name: str

@@ -2,11 +2,12 @@ import redis.asyncio as aioredis
 import json
 from datetime import datetime
 from typing import Optional, Union
-from src.core.config import REDIS_URL
+from src.core.config import config
 from src.logging_config import logger
 
+
 class Cache:
-    def __init__(self, redis_url: str = REDIS_URL):
+    def __init__(self, redis_url: str = config.REDIS_URL):
         self.redis_url = redis_url
         self.pool: Optional[aioredis.Redis] = None
 

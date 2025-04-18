@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Date, Double, DateTi
 from sqlalchemy.orm import relationship
 from src.database.database import Base
 
+
 class Meal(Base):
     __tablename__ = "meal"
 

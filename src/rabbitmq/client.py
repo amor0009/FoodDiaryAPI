@@ -1,7 +1,7 @@
 import aio_pika
-from src.core.config import RABBITMQ_DEFAULT_VHOST, RABBITMQ_DEFAULT_PORT, RABBITMQ_DEFAULT_PASS, RABBITMQ_DEFAULT_USER, \
-    RABBITMQ_DEFAULT_HOST
+from src.core.config import config
 from src.logging_config import logger
+
 
 class RabbitMQClient:
     def __init__(self):
@@ -11,11 +11,11 @@ class RabbitMQClient:
     # Устанавливает соединение с RabbitMQ и открывает канал
     async def connect(self):
         self.connection = await aio_pika.connect_robust(
-            login=RABBITMQ_DEFAULT_USER,
-            password=RABBITMQ_DEFAULT_PASS,
-            host=RABBITMQ_DEFAULT_HOST,
-            virtualhost=RABBITMQ_DEFAULT_VHOST,
-            port=RABBITMQ_DEFAULT_PORT,
+            login=config.RABBITMQ_DEFAULT_USER,
+            password=config.RABBITMQ_DEFAULT_PASS,
+            host=config.RABBITMQ_DEFAULT_HOST,
+            virtualhost=config.RABBITMQ_DEFAULT_VHOST,
+            port=config.RABBITMQ_DEFAULT_PORT,
         )
         self.channel = await self.connection.channel()
         logger.info("RabbitMQClient connected")
@@ -33,6 +33,7 @@ class RabbitMQClient:
             raise RuntimeError("RabbitMQ channel is not connected")
         logger.info(f"RabbitMQClient declare_queue with name: {queue_name}")
         return await self.channel.declare_queue(queue_name, durable=durable)
+
 
 # Создание экземпляра клиента RabbitMQ
 rabbitmq_client = RabbitMQClient()

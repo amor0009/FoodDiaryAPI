@@ -20,6 +20,7 @@ class ProductRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ProductUpdate(BaseModel):
     id: int
     name: Optional[str] = None
@@ -30,6 +31,7 @@ class ProductUpdate(BaseModel):
     carbohydrates: Optional[float] = None
     description: Optional[str] = None
 
+
 class ProductCreate(BaseModel):
     name: str
     weight: float
@@ -38,6 +40,7 @@ class ProductCreate(BaseModel):
     fats: float
     carbohydrates: float
     description: str
+
 
 class ProductAdd(BaseModel):
     name: str

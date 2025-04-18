@@ -4,6 +4,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, column_property
 from src.database.database import Base
 
+
 class User(Base):
     __tablename__ = "user"
 
