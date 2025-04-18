@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 from celery_config import celery
 from sqlalchemy import delete, select
 from src.database.database import get_async_session
@@ -9,7 +8,7 @@ from src.models.user_weight import UserWeight
 from src.models.meal_products import MealProducts
 from src.rabbitmq.client import rabbitmq_client
 from src.rabbitmq.consumer import consume_messages
-from celery.schedules import crontab
+
 
 @celery.task(bind=True, name="start_rabbitmq_consumer")
 def start_rabbitmq_consumer(self, queue_name="registration_queue"):
@@ -24,6 +23,7 @@ def start_rabbitmq_consumer(self, queue_name="registration_queue"):
 
     asyncio.run(main())
 
+
 @celery.task(bind=True)
 async def delete_old_user_weights(self):
     thirty_days_ago = datetime.now().date() - timedelta(days=30)
@@ -36,6 +36,7 @@ async def delete_old_user_weights(self):
         logger.error(f"Error deleting old weights: {e}")
         self.retry(exc=e, countdown=300)  # Повторить через 5 минут
 
+
 @celery.task(bind=True)
 async def delete_old_meal_products(self):
     seven_days_ago = datetime.now().date() - timedelta(days=7)
@@ -47,6 +48,7 @@ async def delete_old_meal_products(self):
     except Exception as e:
         logger.error(f"Error deleting old meals: {e}")
         self.retry(exc=e, countdown=300)
+
 
 @celery.task(bind=True)
 async def add_daily_weight_records(self):

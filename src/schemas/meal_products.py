@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class MealProductsRead(BaseModel):
     product_weight: float
     meal_id: int
@@ -8,9 +9,11 @@ class MealProductsRead(BaseModel):
     class Config:
         from_attributes = True
 
+
 class MealProductsUpdate(BaseModel):
     product_weight: float
     product_id: int
+
 
 class MealProductsCreate(BaseModel):
     product_weight: float

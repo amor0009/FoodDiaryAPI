@@ -1,8 +1,9 @@
 import json
 from aio_pika import IncomingMessage
 from .client import rabbitmq_client
-from src.services.email_service import send_email
+from src.services.email_service import EmailService
 from src.logging_config import logger
+
 
 # Обрабатывает полученное сообщение из очереди RabbitMQ
 async def process_message(message: IncomingMessage):
@@ -15,7 +16,7 @@ async def process_message(message: IncomingMessage):
             await message.reject(requeue=False)
             return
 
-        await send_email(
+        await EmailService.send_email(
             to_email=data["email"],
             subject="Welcome to Food Diary!",
             template_name="registration_email_notification.html",
@@ -31,6 +32,7 @@ async def process_message(message: IncomingMessage):
     except Exception as e:
         logger.error(f"Error processing message: {e}")
         await message.reject(requeue=True)  # Попробовать снова
+
 
 # Начинает потребление сообщений из указанной очереди RabbitMQ
 async def consume_messages(queue_name: str = "registration_queue"):

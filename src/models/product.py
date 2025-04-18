@@ -3,6 +3,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, column_property
 from src.database.database import Base
 
+
 class Product(Base):
     __tablename__ = "product"
 

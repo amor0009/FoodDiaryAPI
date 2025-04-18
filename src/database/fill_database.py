@@ -4,8 +4,9 @@ import os
 from pathlib import Path
 from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.product import Product  # Импортируй модель Product
-from src.logging_config import logger  # Импортируй логгер
+from src.models.product import Product
+from src.logging_config import logger
+
 
 # Функция для преобразования изображения в бинарный формат
 async def image_to_binary(image_path: str) -> bytes:
@@ -41,6 +42,7 @@ async def image_to_binary(image_path: str) -> bytes:
     except Exception as e:
         logger.error(f"Error in image_to_binary: {str(e)}", exc_info=True)
         return None
+
 
 # Загрузка продуктов из JSON-файла и добавление их в базу данных
 async def load_products_from_json(db: AsyncSession, file_path: str):
@@ -93,6 +95,7 @@ async def load_products_from_json(db: AsyncSession, file_path: str):
         # Откатываем транзакцию в случае ошибки
         await db.rollback()
         logger.error(f"Error committing to database: {e}")
+
 
 # Заполнение базы данных продуктами из JSON-файла
 async def fill_database(db: AsyncSession, file_path: str):
