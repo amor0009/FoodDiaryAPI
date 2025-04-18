@@ -2,15 +2,17 @@ from datetime import date
 from sqlalchemy import Column, Integer, String, Double, Date, LargeBinary
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, column_property
+from src.core.uuid_generator import UUIDGenerator
 from src.database.database import Base
+from sqlalchemy.dialects.postgresql import UUID
 
 
 class User(Base):
     __tablename__ = "user"
 
-    id = Column(Integer, primary_key=True, index=True)
-    login = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=UUIDGenerator.generate_uuid)
+    login = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     firstname = Column(String, nullable=True)
     lastname = Column(String, nullable=True)
@@ -30,6 +32,6 @@ class User(Base):
 
     has_profile_picture = column_property(profile_picture.isnot(None))
 
-    meals = relationship('Meal', back_populates='user')
-    products = relationship("Product", back_populates="user")
-    recorded_weight = relationship("UserWeight", back_populates="user")
+    meals = relationship('Meal', back_populates='user', cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="user", cascade="all, delete-orphan")
+    recorded_weight = relationship("UserWeight", back_populates="user", cascade="all, delete-orphan")
