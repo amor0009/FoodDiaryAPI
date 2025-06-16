@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from select import select
 import httpx
 from starlette.responses import RedirectResponse
-from src.core.config import config
+from src.core.config import config, Configuration
 from src.core.security import Security
 from src.database.database import get_async_session
 from src.logging_config import logger
@@ -76,7 +76,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_async
         user = new_user
         logger.info(f"Created new user: {user.email}")
 
-    access_token = Security.create_access_token({"sub": user.login})
+    access_token = Security.create_access_token(data={"sub": user.login}, secret_key=Configuration.USER_SECRET_AUTH)
     logger.info(f"JWT token created for user: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -112,7 +112,7 @@ async def get_google_user_info(access_token: str):
 @auth_router.post("/registration")
 async def registration(user: UserCreate, db: AsyncSession = Depends(get_async_session)):
     new_user = await AuthService.create_user(db, user)
-    access_token = Security.create_access_token(data={"sub": new_user.login})
+    access_token = Security.create_access_token(data={"sub": new_user.login}, secret_key=Configuration.USER_SECRET_AUTH)
     await db.commit()
     await db.refresh(new_user)
     await consume_messages("registration_queue")
@@ -136,7 +136,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = Security.create_access_token(data={"sub": data.username})
+    access_token = Security.create_access_token(data={"sub": data.username}, secret_key=Configuration.USER_SECRET_AUTH)
     logger.info(f"User {data.username} successfully logged in")
     response.set_cookie("fooddiary_access_token", access_token, httponly=True)
     return access_token
@@ -144,5 +144,5 @@ async def login(
 
 # Эндпоинт для выхода пользователя (аннулирования токена)
 @auth_router.post("/logout")
-async def logout(response: Response, user: User = Depends(Security.get_current_user)):
+async def logout(response: Response, user: User = Depends(Security.get_required_user)):
     return await AuthService.logout_user(response)

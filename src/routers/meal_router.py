@@ -14,7 +14,7 @@ meal_router = APIRouter(tags=["Meals"])
 @meal_router.post("/add")
 async def add(
         meal: MealCreate,
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.add_meal(db, meal, current_user.id)
@@ -24,7 +24,7 @@ async def add(
 @meal_router.get("/all_meals")
 async def get_meals(
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await MealService.get_user_meals(db, current_user.id)
 
@@ -34,7 +34,7 @@ async def get_meals(
 async def get_products(
         meal_id: int,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await MealProductsService.get_meal_products(db, meal_id)
 
@@ -44,7 +44,7 @@ async def get_products(
 async def get_users_meals_with_products(
         target_date: str,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await MealService.get_user_meals_with_products_by_date(db, current_user.id, target_date)
 
@@ -53,7 +53,7 @@ async def get_users_meals_with_products(
 @meal_router.get("/id/{meal_id}")
 async def find_by_id(
         meal_id: int,
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.get_meal_by_id(db, meal_id, current_user.id)
@@ -63,7 +63,7 @@ async def find_by_id(
 @meal_router.get("/date/{target_date}")
 async def find_by_date(
         target_date: str,
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.get_meals_by_date(db, current_user.id, target_date)
@@ -72,7 +72,7 @@ async def find_by_date(
 # Эндпоинт для получения истории приемов пищи за последние 7 дней
 @meal_router.get("/history")
 async def find_meal_history(
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.get_meals_last_7_days(db, current_user.id)
@@ -83,7 +83,7 @@ async def find_meal_history(
 async def update(
         meal_update: MealUpdate,
         meal_id: int,
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.update_meal(db, meal_update, meal_id, current_user.id)
@@ -93,7 +93,7 @@ async def update(
 @meal_router.delete("/{meal_id}")
 async def delete(
         meal_id: int,
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         db: AsyncSession = Depends(get_async_session)
 ):
     return await MealService.delete_meal(db, meal_id, current_user.id)

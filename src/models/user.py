@@ -32,6 +32,9 @@ class User(Base):
 
     has_profile_picture = column_property(profile_picture.isnot(None))
 
-    meals = relationship('Meal', back_populates='user', cascade="all, delete-orphan")
+    meals = relationship("Meal", back_populates="user", cascade="all, delete-orphan")
     products = relationship("Product", back_populates="user", cascade="all, delete-orphan")
     recorded_weight = relationship("UserWeight", back_populates="user", cascade="all, delete-orphan")
+
+    def __str__(self):
+        return f"User {self.email}"

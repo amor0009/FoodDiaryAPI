@@ -16,5 +16,5 @@ async def publish_message(message_data: dict, queue_name: str):
         Message(body=message_body),
         routing_key=queue_name
     )
-    print(f"Message published to queue {queue_name} : {message_data}")
+    print(f"Message published to queue {queue_name}: {message_data}")
     logger.info(f'Message published to queue {queue_name}: {message_data}')

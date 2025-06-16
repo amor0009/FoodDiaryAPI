@@ -1,11 +1,13 @@
 from datetime import date
 from typing import Optional
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
 class UserWeightRead(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     weight: Optional[float] = None
     recorded_at: Optional[date] = None
 

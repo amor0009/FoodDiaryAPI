@@ -1,9 +1,11 @@
 from typing import Optional
+from uuid import UUID
+
 from pydantic import BaseModel, computed_field
 
 
 class ProductRead(BaseModel):
-    id: int
+    id: UUID
     name: str
     weight: float
     calories: float
@@ -22,7 +24,7 @@ class ProductRead(BaseModel):
 
 
 class ProductUpdate(BaseModel):
-    id: int
+    id: UUID
     name: Optional[str] = None
     weight: Optional[float] = None
     calories: Optional[float] = None

@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User
 from src.cache.cache import cache
 from src.schemas.user import UserCreate
-from src.services.auth_service import authenticate_user, create_user
+from src.services.auth_service import AuthService
+
 
 @pytest.mark.asyncio
 async def test_auth_service(test_db: AsyncSession, test_cache):
@@ -18,7 +19,7 @@ async def test_auth_service(test_db: AsyncSession, test_cache):
 
     await cache.delete(f"user_auth:{test_user.login}")
 
-    user = await authenticate_user(test_db, test_user.login, "testpassword")
+    user = await AuthService.authenticate_user(test_db, test_user.login, "testpassword")
     assert user is not None
     assert user.login == test_user.login
 
@@ -26,9 +27,10 @@ async def test_auth_service(test_db: AsyncSession, test_cache):
     assert cached_user is not None
     assert cached_user["login"] == test_user.login
 
-    user_from_cache = await authenticate_user(test_db, test_user.login, "testpassword")
+    user_from_cache = await AuthService.authenticate_user(test_db, test_user.login, "testpassword")
     assert user_from_cache is not None
     assert user_from_cache.login == test_user.login
+
 
 @pytest.mark.asyncio
 async def test_create_user_service(test_db: AsyncSession, test_rabbitmq):
@@ -38,6 +40,6 @@ async def test_create_user_service(test_db: AsyncSession, test_rabbitmq):
         password="testpassword"
     )
 
-    user = await create_user(test_db, test_user)
+    user = await AuthService.create_user(test_db, test_user)
     assert user is not None
     assert user.email == "test14@example.com"

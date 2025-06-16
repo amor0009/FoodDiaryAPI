@@ -1,12 +1,14 @@
 from datetime import date
 from typing import List, Optional
+from uuid import UUID
+
 from pydantic import BaseModel
 from src.schemas.meal_products import MealProductsUpdate, MealProductsCreate
 from src.schemas.product import ProductRead
 
 
 class MealRead(BaseModel):
-    id: int
+    id: UUID
     name: str
     weight: float
     calories: float

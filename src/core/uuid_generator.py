@@ -6,4 +6,4 @@ class UUIDGenerator:
     # Генерация UUID для id записей таблиц
     @staticmethod
     def generate_uuid() -> UUID:
-        return uuid7.uuid7()
+        return uuid7()

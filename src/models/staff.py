@@ -1,7 +1,9 @@
+import datetime
 from enum import Enum
+from datetime import date
 from src.core.uuid_generator import UUIDGenerator
 from src.database import Base
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, Date
 from sqlalchemy.dialects.postgresql import UUID
 
 
@@ -12,6 +14,7 @@ class Staff(Base):
     login = Column(String(50), nullable=False, unique=True)
     hashed_password = Column(String(100), nullable=False)
     role = Column(String(50), nullable=False)
+    created_at = Column(Date, nullable=False, default=date.today())
 
 
 class StaffRole(str, Enum):

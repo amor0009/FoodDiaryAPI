@@ -29,3 +29,7 @@ class Product(Base):
 
     user = relationship("User", back_populates="products")
     meal_products = relationship("MealProducts", back_populates="product", cascade="all, delete-orphan")
+
+    def __str__(self):
+        return f"Product #{self.id}"
+    

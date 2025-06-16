@@ -10,8 +10,6 @@ load_dotenv()
 class Configuration:
 
     DB_HOST = os.environ.get("DB_HOST")
-    DB_HOST_DOCKER = os.environ.get("DB_HOST_DOCKER")
-    DB_PORT_DOCKER = os.environ.get("DB_PORT_DOCKER")
     DB_PORT = os.environ.get("DB_PORT")
     DB_NAME = os.environ.get("DB_NAME")
     DB_USER = os.environ.get("DB_USER")
@@ -24,7 +22,8 @@ class Configuration:
     DB_USER_TEST = os.environ.get("DB_USER_TEST")
     DB_PASS_TEST = os.environ.get("DB_PASS_TEST")
 
-    SECRET_AUTH = os.environ.get("SECRET_AUTH")
+    USER_SECRET_AUTH = os.environ.get("USER_SECRET_AUTH")
+    STAFF_SECRET_AUTH = os.environ.get("STAFF_SECRET_AUTH")
     ALGORITHM = os.environ.get("ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES"))
 

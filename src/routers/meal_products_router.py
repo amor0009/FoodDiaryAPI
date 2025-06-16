@@ -16,7 +16,7 @@ meal_products_router = APIRouter(tags=["Meal_Products"])
 async def get_all_meal_products(
     meal_id: int,
     db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(Security.get_current_user)
+    current_user: User = Depends(Security.get_required_user)
 ):
     logger.info(f"Fetching all meal products for meal_id {meal_id}")
     return await MealProductsService.get_meal_products(db, meal_id)
@@ -28,7 +28,7 @@ async def add_meal_product(
     meal_id: int,
     data: MealProductsCreate,
     db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(Security.get_current_user)
+    current_user: User = Depends(Security.get_required_user)
 ):
     logger.info(f"Adding new meal product for meal_id {meal_id}")
     return await MealProductsService.add_meal_product(db, meal_id, data)
@@ -40,7 +40,7 @@ async def update(
     meal_id: int,
     data: MealProductsUpdate,
     db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(Security.get_current_user)
+    current_user: User = Depends(Security.get_required_user)
 ):
     updated = await MealProductsService.update_meal_product(db, meal_id, data)
     if not updated:
@@ -56,7 +56,7 @@ async def delete(
     meal_id: int,
     product_id: int,
     db: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(Security.get_current_user)
+    current_user: User = Depends(Security.get_required_user)
 ):
     success = await MealProductsService.delete_meal_product(db, meal_id, product_id)
     if not success:

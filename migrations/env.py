@@ -2,11 +2,12 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
+from src.models.user import User
 from src.models.meal import Meal
 from src.models.meal_products import MealProducts
 from src.models.product import Product
+from src.models.staff import Staff
 from src.models.user_weight import UserWeight
-from src.models.user import User
 from src.database import Base
 from src.core.config import config as configuration
 

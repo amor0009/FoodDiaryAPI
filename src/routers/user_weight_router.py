@@ -15,7 +15,7 @@ user_weight_router = APIRouter(tags=["User_Weight"])
 async def update_user_weight(
         user_weight: UserWeightUpdate,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
 ):
     return await UserWeightService.save_or_update_weight(user_weight, db, current_user.id)
 
@@ -25,7 +25,7 @@ async def update_user_weight(
 async def get_user_weight(
         current_date: str,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await UserWeightService.get_current_weight(current_date, db, current_user.id)
 
@@ -34,6 +34,6 @@ async def get_user_weight(
 @user_weight_router.get("/history/me")
 async def get_user_weight_history(
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await UserWeightService.get_weights(db, current_user.id)

@@ -1,5 +1,6 @@
 import aio_pika
 from src.core.config import config
+from src.exceptions import RabbitMQChannelError
 from src.logging_config import logger
 
 
@@ -30,7 +31,7 @@ class RabbitMQClient:
     # Объявляет очередь в RabbitMQ
     async def declare_queue(self, queue_name, durable=True):
         if not self.channel:
-            raise RuntimeError("RabbitMQ channel is not connected")
+            raise RabbitMQChannelError
         logger.info(f"RabbitMQClient declare_queue with name: {queue_name}")
         return await self.channel.declare_queue(queue_name, durable=durable)
 

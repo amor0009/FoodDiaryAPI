@@ -14,7 +14,7 @@ product_router = APIRouter(tags=["Products"])
 @product_router.get('/products')
 async def get_all_products(
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     products = await ProductService.get_products(db, current_user.id)
     return products
@@ -24,7 +24,7 @@ async def get_all_products(
 @product_router.get('/search')
 async def search_products(
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user),
+        current_user: User = Depends(Security.get_required_user),
         query: str = None
 ):
     return await ProductService.searching_products(db, current_user.id, query)
@@ -35,7 +35,7 @@ async def search_products(
 async def create_product(
         product: ProductCreate,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.add_product(db, product, current_user.id)
 
@@ -45,7 +45,7 @@ async def create_product(
 async def add_product_to_meal(
         product: ProductCreate,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.add_product(db, product, current_user.id)
 
@@ -55,7 +55,7 @@ async def add_product_to_meal(
 async def get_by_name(
         product: ProductCreate,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.get_products_by_name(db, product.name, current_user.id)
 
@@ -66,7 +66,7 @@ async def update(
         product_id: int,
         product: ProductUpdate,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.update_product(db, product, current_user.id)
 
@@ -76,7 +76,7 @@ async def update(
 async def delete(
         product_id: int,
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.delete_product(db, current_user.id, product_id)
 
@@ -85,7 +85,7 @@ async def delete(
 @product_router.get('/my-products')
 async def get_my_products(
         db: AsyncSession = Depends(get_async_session),
-        current_user: User = Depends(Security.get_current_user)
+        current_user: User = Depends(Security.get_required_user)
 ):
     return await ProductService.get_personal_products(db, current_user.id)
 
@@ -95,7 +95,7 @@ async def get_my_products(
 async def upload_photo(
     product_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(Security.get_current_user),
+    current_user: User = Depends(Security.get_required_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     return await ProductService.upload_product_picture(file, current_user.id, product_id, db)
@@ -105,7 +105,7 @@ async def upload_photo(
 @product_router.get('/product-picture/{product_id}')
 async def get_photo(
     product_id: int,
-    current_user: User = Depends(Security.get_current_user),
+    current_user: User = Depends(Security.get_required_user),
     db: AsyncSession = Depends(get_async_session),
 ):
     # Получаем фото профиля пользователя

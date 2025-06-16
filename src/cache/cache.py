@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from typing import Optional, Union
 from src.core.config import config
+from src.exceptions import CacheGetError, CacheSetError, CacheDeleteError
 from src.logging_config import logger
 
 
@@ -44,9 +45,9 @@ class Cache:
             else:
                 logger.warning(f"Data not found in cache for key {key}")
                 return None
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error while getting data from cache for key {key}")
-            raise
+            raise CacheGetError
 
     # Добавление данных в кэш с ключом
     async def set(self, key: str, value: dict, expire: int = 3600) -> None:
@@ -61,13 +62,13 @@ class Cache:
             logger.info(f"Data successfully added to cache with key {key}")
         except Exception as e:
             logger.exception(f"Error while adding data to cache with key {key}")
-            raise
+            raise CacheSetError
 
     # Удаление данных из кэша по ключу
     async def delete(self, key: str) -> None:
         if not self.pool:
             logger.error("Redis connection is not established")
-            return
+            raise CacheDeleteError
 
         await self.pool.delete(key)
         logger.info(f"Cache deleted for key {key}")
@@ -76,7 +77,7 @@ class Cache:
     async def flushdb(self) -> None:
         if not self.pool:
             logger.error("Redis connection is not established")
-            return
+            return CacheDeleteError
 
         await self.pool.flushdb()
         logger.info("All data in Redis has been flushed")

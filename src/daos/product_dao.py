@@ -10,7 +10,7 @@ class ProductDAO(BaseDAO):
     @classmethod
     async def get_user_products(cls, session: AsyncSession, user_id: int):
         query = select(cls.model).where(
-            or_((cls.model.is_public == True), (cls.model.user_id == user_id))
+            or_(cls.model.is_public, (cls.model.user_id == user_id))
         )
         result = await session.execute(query)
         return result.scalars().all()

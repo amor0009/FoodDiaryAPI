@@ -6,7 +6,10 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import Configuration
+from src.daos.staff_dao import StaffDAO
 from src.database.database import get_async_session
+from src.exceptions import TokenDoesntExist, CredentialsException, TokenHasExpired, InvalidToken, UserDoesntExist, \
+    CustomExceptions, StaffDoesntExist
 from src.services.user_service import UserService
 from src.logging_config import logger
 
@@ -18,49 +21,77 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 class Security:
     # Получение токена
     @staticmethod
-    async def get_token(request: Request):
-        token = request.cookies.get("fooddiary_access_token")
-        if not token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="There is no access token."
-            )
-        return token
+    def get_token(token_name: str):
+        def _get_token(request: Request):
+            token = request.cookies.get(token_name)
+            if not token:
+                raise TokenDoesntExist
+            return token
+        return _get_token
 
     # Получение текущего пользователя из токена
     @staticmethod
-    async def get_current_user(token: str = Depends(get_token), db: AsyncSession = Depends(get_async_session)):
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
+    async def get_required_user(token: str = Depends(get_token("fooddiary_access_token")), db: AsyncSession = Depends(get_async_session)):
         try:
-            payload = pyjwt.decode(token, Configuration.SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
+            payload = pyjwt.decode(token, Configuration.USER_SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
         except Exception:
-            raise credentials_exception
+            raise CredentialsException
         expire: str = payload.get("exp")
         if (not expire) or (int(expire) < datetime.utcnow().timestamp()):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has expired."
-            )
+            raise TokenHasExpired
         login: str = payload.get("sub")
         if not login:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token is not ...."
-            )
+            raise InvalidToken
 
         user = await UserService.find_user_by_login_and_email(db, login)
         if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=""
-            )
+            raise UserDoesntExist
 
         return user
+
+    @staticmethod
+    async def get_possible_user(token: str = Depends(get_token), db: AsyncSession = Depends(get_async_session)):
+        try:
+            payload = pyjwt.decode(token, Configuration.USER_SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
+        except Exception:
+            return None
+        expire: str = payload.get("exp")
+        if (not expire) or (int(expire) < datetime.utcnow().timestamp()):
+            return None
+        login: str = payload.get("sub")
+        if not login:
+            return None
+
+        user = await UserService.find_user_by_login_and_email(db, login)
+        if user is None:
+            return None
+
+        return user
+
+    @staticmethod
+    async def get_staff_from_request(request: Request):
+        db = request.state.db
+        token = request.cookies.get("staff_access_token")
+        return await Security.get_required_staff(token=token, db=db)
+
+    @staticmethod
+    async def get_required_staff(token: str = Depends(get_token("staff_access_token")), db: AsyncSession = Depends(get_async_session)):
+        try:
+            payload = pyjwt.decode(token, Configuration.STAFF_SECRET_AUTH, algorithms=[Configuration.ALGORITHM])
+        except Exception:
+            raise CredentialsException
+        expire: str = payload.get("exp")
+        if (not expire) or (int(expire) < datetime.utcnow().timestamp()):
+            raise TokenHasExpired
+        login: str = payload.get("sub")
+        if not login:
+            raise InvalidToken
+
+        staff = await StaffDAO.find_one_or_none(db, login=login)
+        if staff is None:
+            raise StaffDoesntExist
+
+        return staff
 
     # Проверка пароля
     @classmethod
@@ -105,29 +136,20 @@ class Security:
                 errors.append(error_msg)
 
         if errors:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "message": "Weak password",
-                    "errors": errors,
-                    "requirements": {
-                        "min_length": min_length,
-                        "require_upper": require_upper,
-                        "require_lower": require_lower,
-                        "require_digit": require_digit,
-                        "require_special": require_special,
-                        "special_chars": special_chars
-                    }
-                }
+            CustomExceptions.raise_password_validation_error(
+                errors=errors,
+                min_length=min_length,
+                require_upper=require_upper,
+                require_lower=require_lower,
+                require_digit=require_digit,
+                require_special=require_special,
+                special_chars=special_chars
             )
 
     # Создание токена доступа с временем жизни
     @classmethod
-    def create_access_token(cls, data: dict):
+    def create_access_token(cls, data: dict, secret_key: str):
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=int(Configuration.ACCESS_TOKEN_EXPIRE_MINUTES))
         to_encode.update({"exp": expire})
-        return pyjwt.encode(to_encode, Configuration.SECRET_AUTH, algorithm=Configuration.ALGORITHM)
-
-
-configuration = Configuration
+        return pyjwt.encode(to_encode, secret_key, algorithm=Configuration.ALGORITHM)

@@ -1,9 +1,11 @@
 from typing import Optional
+from uuid import UUID
+
 from pydantic import BaseModel, computed_field
 
 
 class UserRead(BaseModel):
-    id: int
+    id: UUID
     login: str
     email: str
     firstname: Optional[str] = None
