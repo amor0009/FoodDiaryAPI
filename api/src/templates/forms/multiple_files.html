@@ -1,0 +1,184 @@
+{# forms/multiple_files.html #}
+<div class="{% if error %}{{ field.error_class }}{% endif %}">
+    <input type="file" class="form-control {% if error %}is-invalid{% endif %}" id="{{ field.id }}"
+           name="{{ field.id }}" {{ field.input_params() | safe }} multiple
+           accept="image/jpeg,image/png,image/webp,image/gif" />
+    {% if field.help_text %}
+        <small class="form-hint">{{ field.help_text }}</small>
+    {% endif %}
+</div>
+
+<div id="{{ field.id }}-preview" class="mt-3" style="display: none;">
+    <p class="mb-2 fw-bold">{{ _("Новые фото для загрузки:") }}</p>
+    <div id="{{ field.id }}-preview-container" class="d-flex flex-wrap gap-2"></div>
+</div>
+
+{% include "forms/_error.html" %}
+
+{% if data and data|length > 0 %}
+    <div class="mt-3 border p-3 rounded" id="{{ field.id }}-files-container">
+        <p class="mb-2 fw-bold">
+            {% if action == 'EDIT' %}
+                {{ _("Текущие фото:") }}
+            {% else %}
+                {{ _("Загруженные фото:") }}
+            {% endif %}
+        </p>
+        {% for file_item in data %}
+            {% if file_item is mapping and file_item.get('filename') %}
+                <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                    <div class="d-flex align-items-center">
+                        {% set current_filename = file_item.filename | string %}
+                        <img src="{{ file_item.url | default('#') }}"
+                             alt="{{ current_filename }}"
+                             style="max-height: 60px; max-width: 100px; object-fit: cover;"
+                             class="img-thumbnail me-3">
+                        <span class="text-decoration-none">
+                            {{ current_filename }}
+                        </span>
+                    </div>
+
+                    <div class="form-check">
+                        <input id="_{{ field.id }}-delete-{{ loop.index0 }}"
+                               name="_extra_media-delete"
+                               class="form-check-input"
+                               type="checkbox"
+                               value="{{ current_filename }}"
+                               data-role="file-field-delete-item-{{ field.id }}">
+                        <label class="form-check-label" for="_{{ field.id }}-delete-{{ loop.index0 }}">
+                            {{ _("Удалить") }}
+                        </label>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        {% if data|length > 0 %}
+            <div class="form-check mt-3">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="{{ field.id }}-select-all-delete">
+                <label class="form-check-label" for="{{ field.id }}-select-all-delete">
+                    {{ _("Выделить всё для удаления") }}
+                </label>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fieldId = "{{ field.id }}";
+    const fileInput = document.getElementById(fieldId);
+    const previewContainer = document.getElementById(fieldId + '-preview-container');
+    const previewSection = document.getElementById(fieldId + '-preview');
+    const fileList = new DataTransfer();
+
+    if (fileInput && previewContainer) {
+        fileInput.addEventListener('change', function(e) {
+            for (let file of this.files) {
+                fileList.items.add(file);
+            }
+
+            fileInput.files = fileList.files;
+
+            updatePreview();
+        });
+
+        function updatePreview() {
+            previewContainer.innerHTML = '';
+
+            if (fileList.files.length > 0) {
+                previewSection.style.display = 'block';
+
+                Array.from(fileList.files).forEach((file, index) => {
+                    const reader = new FileReader();
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'text-center position-relative';
+                    previewItem.style.width = '100px';
+
+                    reader.onload = function(e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.alt = file.name;
+                        img.style.maxHeight = '60px';
+                        img.style.maxWidth = '100px';
+                        img.style.objectFit = 'cover';
+                        img.className = 'img-thumbnail mb-1';
+
+                        const fileName = document.createElement('div');
+                        fileName.className = 'small text-muted';
+                        fileName.textContent = file.name.length > 15 ?
+                            file.name.substring(0, 12) + '...' : file.name;
+
+                        const removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'btn btn-sm btn-danger position-absolute';
+                        removeBtn.style.top = '-5px';
+                        removeBtn.style.right = '-5px';
+                        removeBtn.style.width = '20px';
+                        removeBtn.style.height = '20px';
+                        removeBtn.style.padding = '0';
+                        removeBtn.style.fontSize = '12px';
+                        removeBtn.innerHTML = '×';
+
+                        removeBtn.addEventListener('click', function() {
+                            const newFileList = new DataTransfer();
+                            Array.from(fileList.files).forEach((f, i) => {
+                                if (i !== index) {
+                                    newFileList.items.add(f);
+                                }
+                            });
+
+                            fileList.items.clear();
+                            for (let file of newFileList.files) {
+                                fileList.items.add(file);
+                            }
+
+                            fileInput.files = fileList.files;
+                            updatePreview();
+                        });
+
+                        previewItem.appendChild(removeBtn);
+                        previewItem.appendChild(img);
+                        previewItem.appendChild(fileName);
+                    };
+
+                    reader.readAsDataURL(file);
+                    previewContainer.appendChild(previewItem);
+                });
+            } else {
+                previewSection.style.display = 'none';
+            }
+        }
+    }
+
+    const container = document.getElementById(fieldId + '-files-container');
+    if (!container) return;
+
+    const selectAll = document.getElementById(fieldId + '-select-all-delete');
+    const checkboxes = container.querySelectorAll('[data-role^="file-field-delete-item"]');
+
+    function updateSelectAll() {
+        const checked = Array.from(checkboxes).filter(c => c.checked).length;
+        if (selectAll) {
+            selectAll.checked = checked === checkboxes.length && checkboxes.length > 0;
+            selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+        }
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        });
+    }
+
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAll);
+    });
+
+    updateSelectAll();
+});
+</script>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #4caf50;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+            color: #333333;
+        }
+        .content h1 {
+            margin-top: 0;
+        }
+        .content p {
+            line-height: 1.6;
+        }
+        .footer {
+            background-color: #f1f1f1;
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            color: #777777;
+        }
+        a {
+            color: #4caf50;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>Добро пожаловать в Food Diary!</h1>
+        </div>
+        <div class="content">
+            <h1>Здравствуйте, {{ user_name }}!</h1>
+            <p>Мы рады приветствовать вас в нашем сообществе. С <b>Food Diary</b> вы можете легко отслеживать свои приемы пищи, контролировать вес и достигать своих целей в области здоровья.</p>
+            <p>Чтобы начать, войдите в свою учетную запись и ознакомьтесь с доступными функциями.</p>
+            <p>Если у вас возникнут вопросы, не стесняйтесь <a href="mailto:support@fooddiary.com">обратиться в нашу службу поддержки</a>.</p>
+            <p>Спасибо, что выбрали Food Diary!</p>
+            <p>С наилучшими пожеланиями,</p>
+            <p>Команда Food Diary</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Food Diary. Все права защищены.</p>
+        </div>
+    </div>
+</body>
+</html>

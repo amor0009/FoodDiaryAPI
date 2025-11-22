@@ -1,0 +1,60 @@
+<div class="{% if error %}{{ field.error_class }}{% endif %}" style="display: flex; align-items: center; gap: 10px;">
+    <input id="{{ field.id }}" name="{{ field.id }}"
+           class="{{ field.class_ }} {% if error %}{{ field.error_class }}{% endif %}"
+           value="{{ '' if data is none else data }}" {{ field.input_params() | safe }} />
+    <button type="button" class="btn btn-primary" onclick="initializeAutoSlug()">Сгенерировать</button>
+    {% if field.help_text %}
+        <small class="form-hint">{{ field.help_text }}</small>
+    {% endif %}
+</div>
+{% include "forms/_error.html" %}
+
+<script>
+function initializeAutoSlug() {
+    const modelName = 'product';
+    const button = document.querySelector('button[onclick="initializeAutoSlug()"]');
+    const titleInput = document.querySelector('input[name="name"]'); // Ищем по name="name"
+    const slugInput = document.querySelector('input[name="slug"]'); // Ищем по name="slug"
+
+    if (titleInput && slugInput) {
+        button.disabled = true;
+        const textToSlugify = titleInput.value.trim();
+
+        if (textToSlugify !== '') {
+            fetch(`/api/utils/generate-slug/${modelName}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: textToSlugify,
+                    exclude_id: slugInput.dataset.articleId || null
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API Error ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data?.slug) {
+                    slugInput.value = data.slug;
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при генерации slug:', error);
+                alert('Не удалось сгенерировать slug');
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+        } else {
+            alert('Введите название объекта');
+            button.disabled = false;
+        }
+    } else {
+        console.error('Не найдены поля ввода');
+    }
+}
+</script>
