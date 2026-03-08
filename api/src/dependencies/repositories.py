@@ -1,3 +1,7 @@
+from api.src.repositories.family.base import BaseFamilyRepository, BaseFamilyMemberRepository, \
+    BaseFamilyProductRepository, BaseFamilyInvitationRepository, BaseFamilyNotificationRepository
+from api.src.repositories.family.sqlalchemy import SqlAlchemyFamilyRepository, SqlAlchemyFamilyMemberRepository, \
+    SqlAlchemyFamilyProductRepository, SqlAlchemyFamilyInvitationRepository, SqlAlchemyFamilyNotificationRepository
 from api.src.repositories.meal.base import BaseMealRepository
 from api.src.repositories.meal.sqlalchemy import SqlAlchemyMealRepository
 from api.src.repositories.meal_products.base import BaseMealProductsRepository
@@ -40,3 +44,23 @@ def get_staff_repository() -> BaseStaffRepository:
 
 def get_user_weight_repository() -> BaseUserWeightRepository:
     return SqlAlchemyUserWeightRepository()
+
+
+def get_family_repository() -> BaseFamilyRepository:
+    return SqlAlchemyFamilyRepository()
+
+
+def get_family_member_repository() -> BaseFamilyMemberRepository:
+    return SqlAlchemyFamilyMemberRepository()
+
+
+def get_family_product_repository() -> BaseFamilyProductRepository:
+    return SqlAlchemyFamilyProductRepository()
+
+
+def get_family_invitation_repository() -> BaseFamilyInvitationRepository:
+    return SqlAlchemyFamilyInvitationRepository()
+
+
+def get_family_notification_repository() -> BaseFamilyNotificationRepository:
+    return SqlAlchemyFamilyNotificationRepository()

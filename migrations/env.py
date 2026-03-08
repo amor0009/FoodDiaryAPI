@@ -4,13 +4,11 @@ from sqlalchemy import pool
 from alembic import context
 from api.src.models.base import Base
 from api.src.core.config import config as configuration
-from api.src.models import User
-from api.src.models import Staff
-from api.src.models import Product
-from api.src.models import Meal
-from api.src.models import MealProducts
-from api.src.models import UserWeight
-from api.src.models.brand import Brand
+from api.src.models import (
+    User, Staff, Product, Meal, MealProducts, UserWeight, Brand,
+    Family, FamilyMember, FamilyInvitation, FamilyProduct,
+    FamilyRole, InvitationStatus, Permission, Role, PermissionsEnum
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

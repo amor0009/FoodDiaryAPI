@@ -52,6 +52,34 @@ class PermissionsEnum(str, Enum):
     MEAL_PRODUCTS_EDIT = "meal_products:edit"
     MEAL_PRODUCTS_DELETE = "meal_products:delete"
 
+    # Семьи
+    FAMILIES_VIEW = "families_view"
+    FAMILIES_CREATE = "families_create"
+    FAMILIES_EDIT = "families_edit"
+    FAMILIES_DELETE = "families_delete"
+
+    # Участники семей
+    FAMILY_MEMBERS_VIEW = "family_members_view"
+    FAMILY_MEMBERS_CREATE = "family_members_create"
+    FAMILY_MEMBERS_EDIT = "family_members_edit"
+    FAMILY_MEMBERS_DELETE = "family_members_delete"
+
+    # Общие продукты
+    FAMILY_PRODUCTS_VIEW = "family_products_view"
+    FAMILY_PRODUCTS_CREATE = "family_products_create"
+    FAMILY_PRODUCTS_EDIT = "family_products_edit"
+    FAMILY_PRODUCTS_DELETE = "family_products_delete"
+
+    # Приглашения
+    FAMILY_INVITATIONS_VIEW = "family_invitations_view"
+    FAMILY_INVITATIONS_CREATE = "family_invitations_create"
+    FAMILY_INVITATIONS_EDIT = "family_invitations_edit"
+    FAMILY_INVITATIONS_DELETE = "family_invitations_delete"
+
+    # Уведомления
+    FAMILY_NOTIFICATIONS_VIEW = "family_notifications_view"
+    FAMILY_NOTIFICATIONS_EDIT = "family_notifications_edit"
+    FAMILY_NOTIFICATIONS_DELETE = "family_notifications_delete"
 
 class Permission(Base):
     __tablename__ = "permissions"

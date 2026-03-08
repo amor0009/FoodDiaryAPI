@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime, timedelta
+
 from starlette_admin.fields import (
     EmailField,
     BooleanField,
@@ -16,11 +19,13 @@ from api.src.models.product import Product
 from api.src.models.staff import PermissionsEnum, Role, Permission
 from api.src.models.user import User, ActivityLevelEnum, AimEnum, GenderEnum
 from typing import Any
-from sqlalchemy import select
+from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 from starlette_admin import StringField, PasswordField, HasOne
 from starlette_admin.exceptions import FormValidationError
-from api.src.models import Staff, Brand
+from api.src.models import Staff, Brand, FamilyMember, FamilyRole, Family, FamilyProduct, FamilyInvitation, \
+    InvitationStatus, FamilyNotification
 from api.src.database.database import async_session_maker
 from api.src.repositories.objects.base import BaseObjectRepository
 from api.src.utils.common import generate_unique_slug
@@ -70,6 +75,7 @@ class StaffView(ModelView):
         PasswordField("password", label="Пароль", required=True),
         MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
         MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+        BooleanField("is_active", label="Активен"),
     ]
 
     exclude_fields_from_list = ["hashed_password", "password"]
@@ -107,6 +113,9 @@ class StaffView(ModelView):
             raise FormValidationError({"role": "Роль обязательна для заполнения"})
 
         obj.hashed_password = Security.get_password_hash(password)
+
+        # Устанавливаем is_active из данных или по умолчанию True
+        obj.is_active = data.get("is_active", True)
 
     async def before_edit(
             self,
@@ -154,6 +163,8 @@ class StaffView(ModelView):
                 obj.email = data["login"]
             if "role" in data:
                 obj.role_id = data["role"]
+            if "is_active" in data:
+                obj.is_active = data["is_active"]
 
             await session.commit()
             await session.refresh(obj)
@@ -168,6 +179,7 @@ class StaffView(ModelView):
         obj.login = data.get("login")
         obj.email = data.get("login")
         obj.role_id = data.get("role")
+        # is_active уже установлен в before_create
 
         async with async_session_maker() as session:
             session.add(obj)
@@ -309,6 +321,7 @@ class UserView(ModelView, MixinImageControl):
         BooleanField("has_avatar", label="Есть аватар"),
         MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
         MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+        BooleanField("is_active", label="Активен"),
     ]
 
     exclude_fields_from_create = ["has_avatar", "created_at", "recommended_calories", "updated_at"]
@@ -564,7 +577,7 @@ class ProductView(ModelView, MixinImageControl):
         MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
         MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
         BooleanField("is_public", label="Публичный"),
-        BooleanField("is_active", label="Активен",),
+        BooleanField("is_active", label="Активен"),
     ]
 
     exclude_fields_from_create = ["created_at", "user", "updated_at"]
@@ -835,3 +848,596 @@ class BrandView(ModelView):
                     "brand": f"Невозможно удалить бренд, так как с ним связаны продукты: {', '.join(product_names)}"
                     f"{' и другие...' if len(products) > 5 else ''}"
                 })
+
+
+class FamilyView(SecuredModelView):
+    def __init__(self):
+        super().__init__(
+            model=Family,
+            name="семья",
+            icon="fa-solid fa-users",
+            label="Семьи",
+            identity="family"
+        )
+
+    permission_view = PermissionsEnum.FAMILIES_VIEW
+    permission_create = PermissionsEnum.FAMILIES_CREATE
+    permission_edit = PermissionsEnum.FAMILIES_EDIT
+    permission_delete = PermissionsEnum.FAMILIES_DELETE
+
+    list_template = "clickable_raw.html"
+
+    fields = [
+        "id",
+        StringField("name", label="Название семьи", required=True, maxlength=100),
+        TextAreaField("description", label="Описание"),
+        BooleanField("is_active", label="Активна"),
+        HasOne("creator", label="Создатель", identity="user"),
+        HasMany("members", label="Участники", identity="family_member"),
+        HasMany("shared_products", label="Общие продукты", identity="family_product"),
+        HasMany("invitations", label="Приглашения", identity="family_invitation"),
+        MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
+        MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+    ]
+
+    exclude_fields_from_create = ["created_at", "updated_at"]
+    exclude_fields_from_edit = ["created_at", "updated_at"]
+    exclude_fields_from_list = ["description", "invitations", "members", "shared_products"]
+
+    searchable_fields = ["name"]
+    sortable_fields = ["name", "created_at"]
+    fields_default_sort = ("created_at", "desc")
+
+    from sqlalchemy.orm import selectinload
+    from uuid import UUID
+
+    async def find_by_pk(self, request: Request, id: Any) -> Any:
+        async with async_session_maker() as session:
+            stmt = (
+                select(Family)
+                .where(Family.id == uuid.UUID(id))
+                .options(
+                    selectinload(Family.creator),
+                    selectinload(Family.members).selectinload(FamilyMember.user),
+                    selectinload(Family.members).selectinload(FamilyMember.family),
+                    selectinload(Family.shared_products).selectinload(FamilyProduct.product),
+                    selectinload(Family.shared_products).selectinload(FamilyProduct.added_by_user),
+                    selectinload(Family.shared_products).selectinload(FamilyProduct.family),
+                    selectinload(Family.invitations).selectinload(FamilyInvitation.inviter),
+                    selectinload(Family.invitations).selectinload(FamilyInvitation.family),
+                )
+            )
+            result = await session.execute(stmt)
+            obj = result.unique().scalar_one_or_none()
+            return obj
+
+    async def _check_name_exists(self, name: str, exclude_id: str = None) -> bool:
+        async with async_session_maker() as session:
+            stmt = select(Family).where(Family.name == name)
+            if exclude_id:
+                stmt = stmt.where(Family.id != uuid.UUID(exclude_id))
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none() is not None
+
+    async def before_create(self, request: Request, data: dict, obj: Family) -> None:
+        name = data.get("name")
+        if not name:
+            raise FormValidationError({"name": "Название семьи обязательно для заполнения"})
+
+        if await self._check_name_exists(name):
+            raise FormValidationError({"name": "Семья с таким названием уже существует"})
+
+        creator_id = data.get("creator")
+        if not creator_id:
+            raise FormValidationError({"creator": "Создатель обязателен для заполнения"})
+
+        obj.name = name
+        obj.description = data.get("description")
+        obj.created_by = creator_id
+        obj.is_active = data.get("is_active", True)
+
+    async def before_edit(self, request: Request, data: dict, obj: Family) -> None:
+        name = data.get("name")
+        if name and name != obj.name:
+            if await self._check_name_exists(name, str(obj.id)):
+                raise FormValidationError({"name": "Семья с таким названием уже существует"})
+
+    async def before_delete(self, request: Request, obj: Family) -> None:
+        async with async_session_maker() as session:
+            members_stmt = select(FamilyMember).where(FamilyMember.family_id == obj.id)
+            members_result = await session.execute(members_stmt)
+            members = members_result.scalars().all()
+
+            if len(members) > 0:
+                raise FormValidationError({
+                    "family": f"Невозможно удалить семью, так как в ней есть участники ({len(members)} чел.)"
+                })
+
+    async def serialize(self, obj: Any, request: Request, action: str = None,
+                        include_relationships: bool = True, **kwargs) -> dict[str, Any]:
+        data = await super().serialize(obj, request, action, include_relationships, **kwargs)
+
+        if include_relationships:
+            async with async_session_maker() as session:
+                members_stmt = select(FamilyMember).where(FamilyMember.family_id == obj.id)
+                members_result = await session.execute(members_stmt)
+                members = members_result.scalars().all()
+                data['members_count'] = len(members)
+
+                products_stmt = select(FamilyProduct).where(FamilyProduct.family_id == obj.id)
+                products_result = await session.execute(products_stmt)
+                products = products_result.scalars().all()
+                data['products_count'] = len(products)
+
+                if hasattr(obj, 'creator'):
+                    data['creator_email'] = obj.creator.email if obj.creator else None
+
+        return data
+
+
+class FamilyMemberView(SecuredModelView):
+    def __init__(self):
+        super().__init__(
+            model=FamilyMember,
+            name="участник семьи",
+            icon="fa-solid fa-user-group",
+            label="Участники семей",
+            identity = "family_member",
+        )
+
+    permission_view = PermissionsEnum.FAMILY_MEMBERS_VIEW
+    permission_create = PermissionsEnum.FAMILY_MEMBERS_CREATE
+    permission_edit = PermissionsEnum.FAMILY_MEMBERS_EDIT
+    permission_delete = PermissionsEnum.FAMILY_MEMBERS_DELETE
+
+    list_template = "clickable_raw.html"
+
+    fields = [
+        "id",
+        HasOne("family", label="Семья", identity="family", required=True),
+        HasOne("user", label="Пользователь", identity="user", required=True),
+        EnumField("role", label="Роль", choices=FamilyRole.get_admin_choices(), required=True),
+        BooleanField("can_manage_family_products", label="Может управлять продуктами", read_only=True),
+        BooleanField("can_view_family_products", label="Может просматривать продукты", read_only=True),
+        BooleanField("can_add_family_products", label="Может добавлять продукты", read_only=True),
+        MoscowDateTimeField("created_at", label="Дата вступления", read_only=True),
+        MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+    ]
+
+    exclude_fields_from_create = ["can_manage_family_products", "can_view_family_products", "can_add_family_products",
+                                  "created_at", "updated_at"]
+    exclude_fields_from_edit = ["can_manage_family_products", "can_view_family_products", "can_add_family_products",
+                                "created_at", "updated_at"]
+
+    async def before_create(self, request: Request, data: dict, obj: FamilyMember) -> None:
+        family_id = data.get("family")
+        user_id = data.get("user")
+
+        if not family_id:
+            raise FormValidationError({"family": "Семья обязательна для заполнения"})
+
+        if not user_id:
+            raise FormValidationError({"user": "Пользователь обязателен для заполнения"})
+
+        async with async_session_maker() as session:
+            stmt = select(FamilyMember).where(
+                and_(
+                    FamilyMember.family_id == family_id,
+                    FamilyMember.user_id == user_id
+                )
+            )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                raise FormValidationError({"user": "Пользователь уже является участником этой семьи"})
+
+            family_stmt = select(Family).where(Family.id == family_id)
+            family_result = await session.execute(family_stmt)
+            family = family_result.scalar_one_or_none()
+
+            if not family:
+                raise FormValidationError({"family": "Семья не найдена"})
+
+            user_stmt = select(User).where(User.id == user_id)
+            user_result = await session.execute(user_stmt)
+            user = user_result.scalar_one_or_none()
+
+            if not user:
+                raise FormValidationError({"user": "Пользователь не найден"})
+
+        obj.family_id = family_id
+        obj.user_id = user_id
+        obj.role = FamilyRole(data.get("role", FamilyRole.MEMBER))
+
+    async def before_edit(self, request: Request, data: dict, obj: FamilyMember) -> None:
+        if obj.role == FamilyRole.OWNER and "role" in data:
+            new_role = FamilyRole(data["role"])
+            if new_role != FamilyRole.OWNER:
+                raise FormValidationError({
+                    "role": "Нельзя изменить роль владельца семьи"
+                })
+
+        family_id = data.get("family")
+        user_id = data.get("user")
+
+        if family_id and family_id != obj.family_id:
+            raise FormValidationError({"family": "Нельзя изменить семью для участника"})
+
+        if user_id and user_id != obj.user_id:
+            raise FormValidationError({"user": "Нельзя изменить пользователя для участника"})
+
+    async def before_delete(self, request: Request, obj: FamilyMember) -> None:
+        if obj.role == FamilyRole.OWNER:
+            raise FormValidationError({
+                "family_member": "Нельзя удалить владельца семьи"
+            })
+
+    async def serialize(self, obj: Any, request: Request, action: str = None,
+                        include_relationships: bool = True, **kwargs) -> dict[str, Any]:
+        data = await super().serialize(obj, request, action, include_relationships, **kwargs)
+
+        if include_relationships:
+            if hasattr(obj, 'family'):
+                data['family_name'] = obj.family.name if obj.family else None
+
+            if hasattr(obj, 'user'):
+                data['user_email'] = obj.user.email if obj.user else None
+                data['user_firstname'] = obj.user.firstname if obj.user else None
+                data['user_lastname'] = obj.user.lastname if obj.user else None
+
+            data['can_manage_family_products'] = obj.can_manage_family_products
+            data['can_view_family_products'] = obj.can_view_family_products
+            data['can_add_family_products'] = obj.can_add_family_products
+
+        return data
+
+
+class FamilyProductView(SecuredModelView):
+    def __init__(self):
+        super().__init__(
+            model=FamilyProduct,
+            name="продукт семьи",
+            icon="fa-solid fa-share-alt",
+            label="Общие продукты",
+            identity = "family_product",
+        )
+
+    permission_view = PermissionsEnum.FAMILY_PRODUCTS_VIEW
+    permission_create = PermissionsEnum.FAMILY_PRODUCTS_CREATE
+    permission_edit = PermissionsEnum.FAMILY_PRODUCTS_EDIT
+    permission_delete = PermissionsEnum.FAMILY_PRODUCTS_DELETE
+
+    list_template = "clickable_raw.html"
+
+    fields = [
+        "id",
+        HasOne("family", label="Семья", identity="family", required=True),
+        HasOne("product", label="Продукт", identity="product", required=True),
+        HasOne("added_by_user", label="Добавил", identity="user"),
+        MoscowDateTimeField("created_at", label="Дата добавления", read_only=True),
+        MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+    ]
+
+    exclude_fields_from_create = ["added_by_user", "created_at", "updated_at"]
+    exclude_fields_from_edit = ["family", "added_by_user", "created_at", "updated_at"]
+
+    async def find_by_pk(self, request: Request, id: Any) -> Any:
+        async with async_session_maker() as session:
+            stmt = (
+                select(FamilyProduct)
+                .where(FamilyProduct.id == uuid.UUID(id))
+                .options(
+                    selectinload(FamilyProduct.product),
+                    selectinload(FamilyProduct.family),
+                    selectinload(FamilyProduct.added_by_user),
+                )
+            )
+            result = await session.execute(stmt)
+            obj = result.scalar_one_or_none()
+            return obj
+
+    async def before_create(self, request: Request, data: dict, obj: FamilyProduct) -> None:
+        family_id = data.get("family")
+        product_id = data.get("product")
+
+        if not family_id:
+            raise FormValidationError({"family": "Семья обязательна для заполнения"})
+
+        if not product_id:
+            raise FormValidationError({"product": "Продукт обязателен для заполнения"})
+
+        async with async_session_maker() as session:
+            stmt = select(FamilyProduct).where(
+                and_(
+                    FamilyProduct.family_id == family_id,
+                    FamilyProduct.product_id == product_id
+                )
+            )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                raise FormValidationError({"product": "Этот продукт уже добавлен в семью"})
+
+            family_stmt = select(Family).where(Family.id == family_id)
+            family_result = await session.execute(family_stmt)
+            family = family_result.scalar_one_or_none()
+
+            if not family:
+                raise FormValidationError({"family": "Семья не найдена"})
+
+            product_stmt = select(Product).where(Product.id == product_id)
+            product_result = await session.execute(product_stmt)
+            product = product_result.scalar_one_or_none()
+
+            if not product:
+                raise FormValidationError({"product": "Продукт не найден"})
+
+        obj.family_id = family_id
+        obj.product_id = product_id
+
+    async def serialize(self, obj: Any, request: Request, action: str = None,
+                        include_relationships: bool = True, **kwargs) -> dict[str, Any]:
+        data = await super().serialize(obj, request, action, include_relationships, **kwargs)
+
+        if include_relationships and hasattr(obj, 'product'):
+            data['product_name'] = obj.product.name if obj.product else None
+            data['product_calories'] = obj.product.calories if obj.product else None
+            data['product_weight'] = obj.product.weight if obj.product else None
+
+        if include_relationships and hasattr(obj, 'family'):
+            data['family_name'] = obj.family.name if obj.family else None
+
+        if include_relationships and hasattr(obj, 'added_by_user'):
+            data['added_by_email'] = obj.added_by_user.email if obj.added_by_user else None
+
+        return data
+
+
+class FamilyInvitationView(SecuredModelView):
+    def __init__(self):
+        super().__init__(
+            model=FamilyInvitation,
+            name="приглашение",
+            icon="fa-solid fa-envelope",
+            label="Приглашения в семьи",
+            identity="family_invitation",
+        )
+
+    permission_view = PermissionsEnum.FAMILY_INVITATIONS_VIEW
+    permission_create = PermissionsEnum.FAMILY_INVITATIONS_CREATE
+    permission_edit = PermissionsEnum.FAMILY_INVITATIONS_EDIT
+    permission_delete = PermissionsEnum.FAMILY_INVITATIONS_DELETE
+
+    list_template = "clickable_raw.html"
+
+    fields = [
+        "id",
+        HasOne("family", label="Семья", identity="family", required=True),
+        EmailField("email", label="Email приглашенного", required=True, maxlength=255),
+        HasOne("inviter", label="Пригласивший", identity="user", required=True),
+        EnumField("role", label="Роль", choices=FamilyRole.get_admin_choices(), required=True),
+        EnumField("status", label="Статус", choices=[
+            (InvitationStatus.PENDING.value, "Ожидает"),
+            (InvitationStatus.ACCEPTED.value, "Принято"),
+            (InvitationStatus.DECLINED.value, "Отклонено"),
+            (InvitationStatus.EXPIRED.value, "Просрочено"),
+        ], required=True),
+        StringField("token", label="Токен", read_only=True),
+        MoscowDateTimeField("expires_at", label="Действительно до", required=True),
+        MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
+        MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+    ]
+
+    exclude_fields_from_create = ["token", "status", "created_at", "updated_at"]
+    exclude_fields_from_edit = ["family", "email", "inviter", "token", "created_at", "updated_at"]
+
+    def can_create(self, request: Request) -> bool:
+        return False
+
+    def can_edit(self, request: Request) -> bool:
+        return False
+
+    async def find_by_pk(self, request: Request, id: Any) -> Any:
+        async with async_session_maker() as session:
+            stmt = (
+                select(FamilyInvitation)
+                .where(FamilyInvitation.id == uuid.UUID(id))
+                .options(
+                    selectinload(FamilyInvitation.family),
+                    selectinload(FamilyInvitation.inviter),
+                )
+            )
+            result = await session.execute(stmt)
+            obj = result.scalar_one_or_none()
+            return obj
+
+    async def before_create(self, request: Request, data: dict, obj: FamilyInvitation) -> None:
+        email = data.get("email")
+        family_id = data.get("family")
+
+        if not email:
+            raise FormValidationError({"email": "Email обязателен для заполнения"})
+
+        if not is_valid_email(email):
+            raise FormValidationError({"email": "Некорректный email адрес"})
+
+        if not family_id:
+            raise FormValidationError({"family": "Семья обязательна для заполнения"})
+
+        async with async_session_maker() as session:
+            stmt = select(FamilyInvitation).where(
+                and_(
+                    FamilyInvitation.family_id == family_id,
+                    FamilyInvitation.email == email,
+                    FamilyInvitation.status == InvitationStatus.PENDING
+                )
+            )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                raise FormValidationError({"email": "Приглашение этому пользователю уже отправлено"})
+
+            user_stmt = select(User).where(User.email == email)
+            user_result = await session.execute(user_stmt)
+            user = user_result.scalar_one_or_none()
+
+            if user:
+                member_stmt = select(FamilyMember).where(
+                    and_(
+                        FamilyMember.family_id == family_id,
+                        FamilyMember.user_id == user.id
+                    )
+                )
+                member_result = await session.execute(member_stmt)
+                existing_member = member_result.scalar_one_or_none()
+
+                if existing_member:
+                    raise FormValidationError({"email": "Пользователь уже является участником этой семьи"})
+
+            family_stmt = select(Family).where(Family.id == family_id)
+            family_result = await session.execute(family_stmt)
+            family = family_result.scalar_one_or_none()
+
+            if not family:
+                raise FormValidationError({"family": "Семья не найдена"})
+
+            inviter_stmt = select(User).where(User.id == data.get("inviter"))
+            inviter_result = await session.execute(inviter_stmt)
+            inviter = inviter_result.scalar_one_or_none()
+
+            if not inviter:
+                raise FormValidationError({"inviter": "Пригласивший пользователь не найден"})
+
+        obj.family_id = family_id
+        obj.email = email
+        obj.invited_by = data.get("inviter")
+        obj.role = FamilyRole(data.get("role", FamilyRole.MEMBER))
+        obj.status = InvitationStatus.PENDING
+        obj.token = str(uuid.uuid4())
+
+        expires_at = data.get("expires_at")
+        if expires_at:
+            obj.expires_at = expires_at
+        else:
+            obj.expires_at = datetime.now() + timedelta(days=7)
+
+    async def before_edit(self, request: Request, data: dict, obj: FamilyInvitation) -> None:
+        if "status" in data:
+            obj.status = InvitationStatus(data["status"])
+
+    async def serialize(self, obj: Any, request: Request, action: str = None,
+                        include_relationships: bool = True, **kwargs) -> dict[str, Any]:
+        data = await super().serialize(obj, request, action, include_relationships, **kwargs)
+
+        if include_relationships and hasattr(obj, 'family'):
+            data['family_name'] = obj.family.name if obj.family else None
+
+        if include_relationships and hasattr(obj, 'inviter'):
+            data['inviter_email'] = obj.inviter.email if obj.inviter else None
+
+        if obj.status == InvitationStatus.PENDING and obj.expires_at < datetime.now():
+            data['is_expired'] = True
+            data['status_display'] = "Просрочено"
+        else:
+            data['is_expired'] = False
+            status_display = {
+                InvitationStatus.PENDING.value: "Ожидает",
+                InvitationStatus.ACCEPTED.value: "Принято",
+                InvitationStatus.DECLINED.value: "Отклонено",
+                InvitationStatus.EXPIRED.value: "Просрочено",
+            }
+            data['status_display'] = status_display.get(obj.status.value, obj.status.value)
+
+        return data
+
+
+class FamilyNotificationView(SecuredModelView):
+    def __init__(self):
+        super().__init__(
+            model=FamilyNotification,
+            name="уведомление",
+            icon="fa-solid fa-bell",
+            label="Уведомления семей",
+            identity="family_notification",
+        )
+
+    permission_view = PermissionsEnum.FAMILY_NOTIFICATIONS_VIEW
+    permission_edit = PermissionsEnum.FAMILY_NOTIFICATIONS_EDIT
+    permission_delete = PermissionsEnum.FAMILY_NOTIFICATIONS_DELETE
+
+    list_template = "clickable_raw.html"
+
+    fields = [
+        "id",
+        HasOne("user", label="Пользователь", identity="user", required=True),
+        HasOne("family", label="Семья", identity="family", required=True),
+        HasOne("invitation", label="Приглашение", identity="family_invitation", required=False),
+        StringField("type", label="Тип уведомления", required=True, maxlength=50),
+        StringField("title", label="Заголовок", required=True, maxlength=200),
+        TextAreaField("message", label="Сообщение", required=True),
+        BooleanField("is_read", label="Прочитано"),
+        MoscowDateTimeField("read_at", label="Дата прочтения"),
+        MoscowDateTimeField("created_at", label="Дата создания", read_only=True),
+        MoscowDateTimeField("updated_at", label="Дата обновления", read_only=True),
+    ]
+
+    exclude_fields_from_create = ["read_at", "created_at", "updated_at"]
+    exclude_fields_from_edit = ["user", "family", "invitation", "type", "title", "message", "created_at", "updated_at"]
+
+    def can_create(self, request: Request) -> bool:
+        return False
+
+    def can_edit(self, request: Request) -> bool:
+        return False
+
+    async def find_by_pk(self, request: Request, id: Any) -> Any:
+        async with async_session_maker() as session:
+            stmt = (
+                select(FamilyNotification)
+                .where(FamilyNotification.id == uuid.UUID(id))
+                .options(
+                    selectinload(FamilyNotification.user),
+                    selectinload(FamilyNotification.family),
+                    selectinload(FamilyNotification.invitation),
+                )
+            )
+            result = await session.execute(stmt)
+            obj = result.scalar_one_or_none()
+            return obj
+
+    async def before_edit(self, request: Request, data: dict, obj: FamilyNotification) -> None:
+        if "is_read" in data:
+            obj.is_read = data["is_read"]
+            if data["is_read"] and not obj.read_at:
+                obj.read_at = datetime.now()
+            elif not data["is_read"]:
+                obj.read_at = None
+
+    async def serialize(self, obj: Any, request: Request, action: str = None,
+                        include_relationships: bool = True, **kwargs) -> dict[str, Any]:
+        data = await super().serialize(obj, request, action, include_relationships, **kwargs)
+
+        if include_relationships and hasattr(obj, 'user'):
+            data['user_email'] = obj.user.email if obj.user else None
+
+        if include_relationships and hasattr(obj, 'family'):
+            data['family_name'] = obj.family.name if obj.family else None
+
+        if obj.read_at:
+            data['read_at_formatted'] = obj.read_at.strftime("%d.%m.%Y %H:%M")
+
+        if obj.created_at:
+            data['created_at_formatted'] = obj.created_at.strftime("%d.%m.%Y %H:%M")
+
+        notification_types = {
+            "invitation": "Приглашение",
+            "product_added": "Добавлен продукт",
+            "member_added": "Новый участник",
+            "role_changed": "Изменение роли",
+        }
+        data['type_display'] = notification_types.get(obj.type, obj.type)
+
+        return data

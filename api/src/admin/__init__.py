@@ -1,5 +1,6 @@
 from api.src.admin.auth import AdminAuth, admin_auth
-from api.src.admin.views import StaffView, ProductView, UserView, RoleView, PermissionView, BrandView
+from api.src.admin.views import StaffView, ProductView, UserView, RoleView, PermissionView, BrandView, FamilyView, \
+    FamilyMemberView, FamilyProductView, FamilyInvitationView, FamilyNotificationView
 from api.src.database.database import engine
 from starlette_admin.contrib.sqla import Admin
 from starlette_admin.i18n import I18nConfig
@@ -36,6 +37,20 @@ admin.add_view(
         views=[
             ProductView(object_repository=get_object_repository()),
             BrandView,
+        ],
+    )
+)
+
+admin.add_view(
+    DropDown(
+        label="Семьи",
+        icon="fa-solid fa-users",
+        views=[
+            FamilyView(),
+            FamilyMemberView(),
+            FamilyProductView(),
+            FamilyInvitationView(),
+            FamilyNotificationView(),
         ],
     )
 )

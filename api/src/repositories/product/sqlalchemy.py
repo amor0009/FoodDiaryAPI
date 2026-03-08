@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from uuid import UUID
+from api.src.models.family import FamilyMember, FamilyProduct
 from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.src.models.product import Product
@@ -13,9 +14,23 @@ class SqlAlchemyProductRepository(BaseProductRepository):
         self._crud = CrudOperations(Product)
 
     async def get_user_products(self, session: AsyncSession, user_id: UUID, limit: int | None, offset: int | None) -> list[Product]:
+        family_subquery = select(FamilyMember.family_id).where(
+            FamilyMember.user_id == user_id
+        ).scalar_subquery()
+
+        family_products_subquery = select(FamilyProduct.product_id).where(
+            FamilyProduct.family_id.in_(family_subquery)
+        ).scalar_subquery()
+
         query = select(Product).where(
-            or_(Product.is_public, Product.user_id == user_id)
-        ).limit(limit).offset(offset)
+            or_(
+                Product.user_id == user_id,
+                Product.is_public,
+                Product.id.in_(family_products_subquery)
+            ),
+            Product.is_active,
+        ).order_by(Product.name).limit(limit).offset(offset)
+
         result = await session.execute(query)
         return list(result.scalars().all())
 
@@ -29,34 +44,59 @@ class SqlAlchemyProductRepository(BaseProductRepository):
             return await self.get_user_products(session, user_id)
 
         formatted_query = query.capitalize()
+
+        family_subquery = select(FamilyMember.family_id).where(
+            FamilyMember.user_id == user_id
+        ).scalar_subquery()
+
+        family_products_subquery = select(FamilyProduct.product_id).where(
+            FamilyProduct.family_id.in_(family_subquery)
+        ).scalar_subquery()
+
         query = select(Product).where(
-            or_(Product.is_public, (Product.user_id == user_id)),
+            or_(Product.is_public, (Product.user_id == user_id), Product.id.in_(family_products_subquery)),
             Product.name.ilike(f"{formatted_query}%")
         ).limit(limit).offset(offset)
         result = await session.execute(query)
         return list(result.scalars().all())
 
     async def get_by_name(self, session: AsyncSession, product_name: str, user_id: UUID) -> Product | None:
+        family_subquery = select(FamilyMember.family_id).where(
+            FamilyMember.user_id == user_id
+        ).scalar_subquery()
+
+        family_products_subquery = select(FamilyProduct.product_id).where(
+            FamilyProduct.family_id.in_(family_subquery)
+        ).scalar_subquery()
+
         query = select(Product).where(
             and_(
-                or_(Product.is_public, (Product.user_id == user_id)),
-                (Product.name == product_name)
+                or_(Product.is_public, (Product.user_id == user_id), Product.id.in_(family_products_subquery)),
+                (Product.name == product_name),
             )
         )
         result = await session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, session: AsyncSession, product_id: int, user_id: UUID) -> Product | None:
+    async def get_by_id(self, session: AsyncSession, product_id: UUID, user_id: UUID) -> Product | None:
+        family_subquery = select(FamilyMember.family_id).where(
+            FamilyMember.user_id == user_id
+        ).scalar_subquery()
+
+        family_products_subquery = select(FamilyProduct.product_id).where(
+            FamilyProduct.family_id.in_(family_subquery)
+        ).scalar_subquery()
+
         query = select(Product).where(
             and_(
                 (Product.id == product_id),
-                or_(Product.is_public, (Product.user_id == user_id))
+                or_(Product.is_public, (Product.user_id == user_id), Product.id.in_(family_products_subquery))
             )
         )
         result = await session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_editable_by_id(self, session: AsyncSession, product_id: int, user_id: UUID) -> Product | None:
+    async def get_editable_by_id(self, session: AsyncSession, product_id: UUID, user_id: UUID) -> Product | None:
         query = select(Product).where(
             and_(
                 Product.id == product_id,

@@ -46,7 +46,7 @@ class Security:
         user = await user_repository.find_by_login_or_email(db, login)
         if user is None:
             raise UserDoesntExist
-
+        print(user)
         return user
 
     @staticmethod

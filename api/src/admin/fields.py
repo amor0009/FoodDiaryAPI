@@ -57,7 +57,10 @@ class ProductsFiles(FileField):
         return [{"url": self._object_repository.get_url(file), "filename": file} for file in value]
 
     async def parse_obj(self, request, obj):
-        return getattr(obj, 'images', {}).get('extra_media', [])
+        images = getattr(obj, 'images', None)
+        if images is None:
+            return []
+        return images.get('extra_media', [])
 
 
 class MoscowDateTimeField(DateTimeField):

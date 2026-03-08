@@ -5,12 +5,14 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from api.src.models.base import Base
+from api.src.models.family import FamilyInvitation, FamilyProduct
 
 
 if TYPE_CHECKING:
     from api.src.models.meal import Meal
     from api.src.models.product import Product
     from api.src.models.user_weight import UserWeight
+    from api.src.models.family import Family, FamilyMember, FamilyNotification
 
 
 class GenderEnum(str, Enum):
@@ -83,5 +85,10 @@ class User(Base):
     products: Mapped[list["Product"]] = relationship("Product", back_populates="user", cascade="all, delete-orphan")
     recorded_weight: Mapped[list["UserWeight"]] = relationship("UserWeight", back_populates="user", cascade="all, delete-orphan")
 
-    def __str__(self):
-        return f"Пользователь: {self.email}"
+    created_families: Mapped[list["Family"]] = relationship("Family", back_populates="creator", cascade="all, delete-orphan")
+    family_memberships: Mapped[list["FamilyMember"]] = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
+    sent_invitations: Mapped[list["FamilyInvitation"]] = relationship("FamilyInvitation", back_populates="inviter", foreign_keys=[FamilyInvitation.invited_by], cascade="all, delete-orphan")
+    added_family_products: Mapped[list["FamilyProduct"]] = relationship("FamilyProduct", back_populates="added_by_user", foreign_keys=[FamilyProduct.added_by], cascade="all, delete-orphan")
+
+    async def __admin_repr__(self, request):
+        return self.email

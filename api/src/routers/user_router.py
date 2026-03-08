@@ -28,6 +28,7 @@ async def get_current_user_data(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(get_user_service),
 ) -> UserRead:
+    print("HI")
     user = await user_service.find_user_by_login_and_email(session, current_user.login)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

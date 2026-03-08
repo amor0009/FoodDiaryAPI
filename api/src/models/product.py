@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from api.src.models.user import User
     from api.src.models.meal_products import MealProducts
     from api.src.models.brand import Brand
+    from api.src.models.family import FamilyProduct
 
 
 class Product(Base):
@@ -39,6 +40,11 @@ class Product(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="products")
     brand: Mapped["Brand"] = relationship("Brand", back_populates="products")
+    family_shares: Mapped[list["FamilyProduct"]] = relationship(
+        "FamilyProduct",
+        back_populates="product",
+        cascade="all, delete-orphan"
+    )
     meal_products: Mapped[list["MealProducts"]] = relationship(
         "MealProducts",
         back_populates="product",
@@ -52,5 +58,5 @@ class Product(Base):
             autoescape=True,
         ).render(obj=self)
 
-    def __str__(self):
+    async def __admin_repr__(self, request):
         return f"Продукт: #{self.name}"

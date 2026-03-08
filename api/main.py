@@ -5,6 +5,7 @@ from api.src.cache.cache import cache
 from api.src.core.config import config
 from api.src.rabbitmq.client import rabbitmq_client
 from api.src.routers.database_router import database_router
+from api.src.routers.family_router import family_router
 from api.src.routers.meal_router import meal_router
 from api.src.routers.product_router import product_router
 from api.src.routers.auth_router import auth_router
@@ -64,5 +65,6 @@ app.include_router(user_router)
 app.include_router(product_router)
 app.include_router(meal_router)
 app.include_router(utils_router)
+app.include_router(family_router)
 
 admin.mount_to(app)

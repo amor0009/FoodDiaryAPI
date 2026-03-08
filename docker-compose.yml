@@ -1,0 +1,169 @@
+services:
+  db_main:
+    image: postgres:16
+    container_name: FoodDiaryDB
+    env_file:
+      - .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_main_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - fooddiary-network
+
+
+  db_test:
+    image: postgres:16
+    container_name: TestsFoodDiaryDB
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lukas
+      POSTGRES_DB: TestsFoodDiaryDB
+    ports:
+      - "6000:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - fooddiary-network
+
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: FoodDiaryRedis
+    env_file:
+      - .env
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - fooddiary-network
+
+
+  rabbitmq:
+    image: rabbitmq:3.10.7-management
+    container_name: FoodDiaryRabbitMQ
+    hostname: rabbitmq
+    env_file:
+      - .env
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - fooddiary-network
+
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: FoodDiaryAPI
+    env_file:
+      - .env-non-dev
+    depends_on:
+      db_main:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    command: sh -c /app/docker/*.sh
+    ports:
+      - "7777:8000"
+    restart: always
+    networks:
+      - fooddiary-network
+
+  rabbitmq_consumer:
+    build: .
+    command: sh -c "sleep 10 && python -m src.rabbitmq.run_consumer"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      - RABBITMQ_DEFAULT_USER=dev
+      - RABBITMQ_DEFAULT_PASS=dev
+      - RABBITMQ_DEFAULT_HOST=rabbitmq
+      - RABBITMQ_DEFAULT_VHOST=/fooddiary
+      - RABBITMQ_DEFAULT_PORT=5672
+    restart: always
+    networks:
+      - fooddiary-network
+
+
+  celery_worker:
+    build: .
+    command: sh -c "sleep 15 && celery -A src.fone_tasks.celery_config worker --loglevel=info -Q default,registration_queue,cleanup_queue"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      db_main:
+        condition: service_healthy
+      app:
+        condition: service_started
+    restart: always
+    networks:
+      - fooddiary-network
+
+
+  celery_beat:
+    build: .
+    command: sh -c "sleep 20 && celery -A src.fone_tasks.celery_config beat --loglevel=info"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      db_main:
+        condition: service_healthy
+      app:
+        condition: service_started
+    restart: always
+    networks:
+      - fooddiary-network
+
+
+  #frontend:
+   # build:
+    #  context: C:/D/studies/js/fooddiary_front/
+     # dockerfile: Dockerfile
+    #container_name: WebFront
+    #ports:
+     # - "3000:80"
+    #depends_on:
+     # app:
+      #  condition: service_started
+    #networks:
+     # - fooddiary-network
+
+networks:
+  fooddiary-network:
+    driver: bridge
+
+volumes:
+  db_main_data:
+

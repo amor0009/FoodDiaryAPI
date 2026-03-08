@@ -5,5 +5,25 @@ from .staff import Staff
 from .user_weight import UserWeight
 from .meal_products import MealProducts
 from .brand import Brand
+from .family import Family, FamilyMember, FamilyInvitation, FamilyProduct, FamilyRole, InvitationStatus, FamilyNotification
+from .staff import Permission, Role, PermissionsEnum
 
-__all__ = ['User', 'Meal', 'Product', 'Staff', 'UserWeight', 'MealProducts', "Brand"]
+__all__ = [
+    'User',
+    'Meal',
+    'Product',
+    'Staff',
+    'UserWeight',
+    'MealProducts',
+    'Brand',
+    'Family',
+    'FamilyMember',
+    'FamilyInvitation',
+    'FamilyProduct',
+    'FamilyRole',
+    'FamilyNotification',
+    'InvitationStatus',
+    'Permission',
+    'Role',
+    'PermissionsEnum'
+]
