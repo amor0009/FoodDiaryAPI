@@ -18,7 +18,9 @@ async def get_weight_history(
     session: AsyncSession = Depends(get_async_session),
     user_weight_service: UserWeightService = Depends(get_user_weight_service),
 ) -> list[UserWeightRead] | None:
-    return await user_weight_service.get_last_30_days(session, current_user.id)
+    weight = await user_weight_service.get_last_30_days(session, current_user.id)
+    print(weight)
+    return weight
 
 
 @user_weight_router.get("/current")
@@ -37,7 +39,9 @@ async def get_weight_by_date(
     session: AsyncSession = Depends(get_async_session),
     user_weight_service: UserWeightService = Depends(get_user_weight_service),
 ) -> UserWeightRead | None:
-    return await user_weight_service.get_by_date(session, current_user.id, target_date)
+    weight = await user_weight_service.get_by_date(session, current_user.id, target_date)
+    print(weight)
+    return weight
 
 
 @user_weight_router.get("/trend")

@@ -1,3 +1,4 @@
+# converters/meal_converter.py (или любой другой файл, который был в исходном сообщении)
 from api.src.models.meal import Meal
 from api.src.models.meal_products import MealProducts
 from api.src.models.product import Product

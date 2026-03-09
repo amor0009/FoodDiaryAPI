@@ -1,3 +1,4 @@
+# product_repository.py
 from dataclasses import dataclass
 from uuid import UUID
 from api.src.models.family import FamilyMember, FamilyProduct
@@ -53,11 +54,11 @@ class SqlAlchemyProductRepository(BaseProductRepository):
             FamilyProduct.family_id.in_(family_subquery)
         ).scalar_subquery()
 
-        query = select(Product).where(
+        stmt = select(Product).where(
             or_(Product.is_public, (Product.user_id == user_id), Product.id.in_(family_products_subquery)),
             Product.name.ilike(f"{formatted_query}%")
         ).limit(limit).offset(offset)
-        result = await session.execute(query)
+        result = await session.execute(stmt)
         return list(result.scalars().all())
 
     async def get_by_name(self, session: AsyncSession, product_name: str, user_id: UUID) -> Product | None:

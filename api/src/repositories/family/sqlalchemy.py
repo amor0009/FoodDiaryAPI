@@ -45,11 +45,13 @@ class SqlAlchemyFamilyRepository(BaseFamilyRepository):
             )
         )
 
-        # Исправьте: используйте .unique() на Result, затем .scalars().all()
         created_families = created_families_result.unique().scalars().all()
         member_families = member_families_result.unique().scalars().all()
 
-        return list(created_families) + list(member_families)
+        # Объединяем и удаляем дубликаты по ID
+        all_families = list(created_families) + list(member_families)
+        unique_families = {family.id: family for family in all_families}.values()
+        return list(unique_families)
 
     async def update_family(self, session: AsyncSession, family: Family, update_data: dict) -> Family:
         for key, value in update_data.items():

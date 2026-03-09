@@ -7,11 +7,14 @@ from api.logging_config import logger
 from api.src.schemas.user_weight import UserWeightRead, UserWeightCreate
 from api.src.repositories.user_weight.base import BaseUserWeightRepository
 from api.src.services.converters.user_weight import convert_user_weight_model_to_schema
+from api.src.repositories.user.base import BaseUserRepository  # добавлен импорт
+from api.src.cache.cache import cache  # добавлен импорт
 
 
 @dataclass(slots=True)
 class UserWeightService:
     _user_weight_repository: BaseUserWeightRepository
+    _user_repository: BaseUserRepository
 
     async def get_by_date(self, session: AsyncSession, user_id: UUID, target_date: date) -> UserWeightRead | None:
         logger.info(f"Getting weight for user {user_id} on date {target_date}")
@@ -52,6 +55,15 @@ class UserWeightService:
             user_weight = await self._user_weight_repository.create_or_update(
                 session, user_id, weight_data.weight
             )
+
+            # Обновляем вес пользователя в таблице users
+            user = await self._user_repository.get_by_id(session, user_id)
+            if user:
+                user.weight = weight_data.weight
+                await session.commit()
+                # Сбрасываем кэш пользователя
+                await cache.delete(f"user:{user.login}")
+                logger.info(f"Updated user {user_id} weight to {weight_data.weight}kg and cleared cache")
 
             logger.info(f"Weight record created for user {user_id}")
             return convert_user_weight_model_to_schema(user_weight)

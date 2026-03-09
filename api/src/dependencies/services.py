@@ -19,11 +19,11 @@ def get_meal_service() -> MealService:
 
 
 def get_product_service() -> ProductService:
-    return ProductService(get_product_repository())
+    return ProductService(get_product_repository(), get_object_repository())
 
 
 def get_user_weight_service() -> UserWeightService:
-    return UserWeightService(get_user_weight_repository())
+    return UserWeightService(get_user_weight_repository(), get_user_repository())
 
 
 def get_family_service() -> FamilyService:

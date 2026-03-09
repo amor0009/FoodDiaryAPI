@@ -1,4 +1,5 @@
-from api.src.models import Product
+# product_converter.py
+from api.src.models.product import Product
 from api.src.schemas.product import ProductRead, ProductMedia
 
 

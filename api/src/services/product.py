@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from uuid import UUID
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.src.cache.cache import cache
 from api.logging_config import logger
+from api.src.models import MealProducts
+from api.src.repositories.objects.base import BaseObjectRepository
 from api.src.schemas.base import Pagination
 from api.src.schemas.product import ProductRead, ProductCreate, ProductUpdate, ProductAdd
 from api.src.repositories.product.base import BaseProductRepository
@@ -13,6 +16,7 @@ from api.src.services.converters.product import convert_product_model_to_schema
 @dataclass(slots=True)
 class ProductService:
     _product_repository: BaseProductRepository
+    _object_repository: BaseObjectRepository
 
     async def get_user_products(
         self,
@@ -94,7 +98,6 @@ class ProductService:
         if not product:
             logger.warning(f"Product with name {product_name} not found for user {user_id}.")
             return None
-
         return convert_product_model_to_schema(product)
 
     async def create_product(self, session: AsyncSession, product_data: ProductCreate, user_id: UUID) -> ProductRead:
@@ -135,6 +138,29 @@ class ProductService:
                 detail="Failed to create product"
             )
 
+    async def create_product_with_picture(
+        self,
+        session: AsyncSession,
+        product_data: ProductCreate,
+        file: UploadFile | None,
+        user_id: UUID
+    ) -> ProductRead:
+        product = await self.create_product(session, product_data, user_id)
+
+        if file:
+            try:
+                filename = await self._object_repository.add(file)
+                current_images = {"cover": filename}
+                product_model = await self._product_repository.get_by_id(session, product.id, user_id)
+                await self._product_repository.update_product(
+                    session, product_model, {"images": current_images}
+                )
+                await self._clear_product_cache(user_id, product.id)
+                product = await self.get_product_by_id(session, product.id, user_id)
+            except Exception as e:
+                logger.error(f"Error uploading picture for new product {product.id}: {e}")
+        return product
+
     async def update_product(self, session: AsyncSession, product_id: UUID, product_update: ProductUpdate,
                              user_id: UUID) -> ProductRead:
         logger.info(f"Updating product {product_id} for user {user_id}")
@@ -168,6 +194,49 @@ class ProductService:
                 detail="Failed to update product"
             )
 
+    async def update_product_with_picture(
+        self,
+        session: AsyncSession,
+        product_id: UUID,
+        product_update: ProductUpdate,
+        file: UploadFile | None,
+        user_id: UUID
+    ) -> ProductRead:
+        product = await self._product_repository.get_editable_by_id(session, product_id, user_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found or not editable"
+            )
+
+        new_images = None
+        if file:
+            try:
+                filename = await self._object_repository.add(file)
+                if product.images and "cover" in product.images:
+                    try:
+                        await self._object_repository.delete(product.images["cover"])
+                    except Exception as e:
+                        logger.error(f"Failed to delete old picture for product {product_id}: {e}")
+                new_images = product.images or {}
+                new_images["cover"] = filename
+            except Exception as e:
+                logger.error(f"Error uploading picture for product {product_id}: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to upload picture"
+                )
+
+        updated_product = await self.update_product(session, product_id, product_update, user_id)
+
+        if new_images:
+            product_model = await self._product_repository.get_by_id(session, product_id, user_id)
+            await self._product_repository.update_product(session, product_model, {"images": new_images})
+            await self._clear_product_cache(user_id, product_id)
+            updated_product = await self.get_product_by_id(session, product_id, user_id)
+
+        return updated_product
+
     async def delete_product(self, session: AsyncSession, product_id: UUID, user_id: UUID) -> dict:
         logger.info(f"Deleting product {product_id} for user {user_id}")
 
@@ -179,14 +248,25 @@ class ProductService:
                 detail="Product not found or not editable"
             )
 
+        stmt = select(MealProducts).where(MealProducts.product_id == product_id).limit(1)
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot delete product because it is used in meals"
+            )
+
+        if product.images and "cover" in product.images:
+            try:
+                await self._object_repository.delete(product.images["cover"])
+            except Exception as e:
+                logger.error(f"Failed to delete picture for product {product_id}: {e}")
+
         try:
             await self._product_repository.delete_product(session, product)
-
             await self._clear_product_cache(user_id, product_id)
             logger.info(f"Product {product_id} deleted successfully for user {user_id}.")
-
             return {"message": "Product deleted successfully"}
-
         except Exception as e:
             await session.rollback()
             logger.error(f"Error deleting product {product_id}: {str(e)}")
